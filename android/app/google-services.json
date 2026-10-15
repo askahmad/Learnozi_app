@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1093846130452",
+    "project_id": "learnozi",
+    "storage_bucket": "learnozi.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1093846130452:android:85e1e3a2e8d6796d386c01",
+        "android_client_info": {
+          "package_name": "com.example.learnozi_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAvLU2KYuoom-PWzfa13zV_pkEizfWdr_s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

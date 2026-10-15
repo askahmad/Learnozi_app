@@ -1,0 +1,511 @@
+Final Year Project-I Registration Form
+Complete version with full details
+1.  Student’s Information:
+Sr. #
+Registration #
+Student Name
+Session
+Contact No
+1.
+Cosc231103071
+Muhammad Ahmad
+2023-2027
+03026568143
+2.
+Cosc231103084
+Qurban Khan
+2023-2027
+03009657618
+Program: BSCS     Section: C     Supervisor: Dr. Mutiullah
+2.  Project Information:
+Project Title
+Learnozi – Intelligent Academic Assistant & Study Companion
+Project Type
+Applied Project
+Domain/Tools
+Domain: Educational Technology (EdTech), Applied Artificial Intelligence (AI), and Full-Stack Web Engineering.
+Tools: React.js (Vite) for the frontend; Node.js (Vercel serverless functions) for the backend; Supabase (PostgreSQL database, authentication, and file storage); Google Gemini API (LLM); Python, scikit-learn, and Google Colab for the self-trained weak-topic model; Vercel for hosting; Git/GitHub and Postman.
+Functional Requirements
+1.  User Authentication & Profile Management: Registration with name, optional profile photo, and email. School students choose their grade (9, 10, 11, 12) and course (Medical, Computer, Commerce, or Engineering); university students give their university name, semester, and program. The email address is verified with a one-time password (OTP). Login uses email, password, and a CAPTCHA. A forgotten password is reset through a link sent to the verified email. Sessions are secured with tokens and users can log out safely.
+2.  AI Academic Concept Explainer: A chat tutor that explains any topic step by step with examples and a short revision summary, adapted to the student's grade or program. The student can type, attach an image (optional), or speak (voice-to-text). Explanations are available in English and Urdu.
+3.  Document Chat & Note Summarizer: The student uploads notes, a PDF, or an image (maximum 5 MB). The system produces a summary and key points. Every uploaded document has its own separate chat, shows how much of the document has been used in the conversation, and, for technical material, gives code in the programming language of the document.
+4.  AI Auto-Quiz & Assessment Generator: Quizzes are generated from a topic or an uploaded document in Short, Long, MCQ, or Mixed format using an LLM prompt-engineering pipeline, and answers are checked on the spot. While a quiz is open, the student cannot switch to another chat; closing or leaving the quiz terminates it. Quiz progress is shown on the top bar and on the dashboard.
+5.  Adaptive Learning & Weak-Topic Diagnostic Engine: Quiz performance is tracked continuously for each topic. A machine-learning model trained by the team (scikit-learn) identifies weak topics, and the difficulty and focus of later quizzes and revision recommendations are adjusted accordingly.
+6.  Active Recall Flashcard System: Flashcards can be created, categorized, and reviewed interactively. Reviews are scheduled with a spaced-repetition rule so that harder cards return sooner.
+7.  Smart Study Planner & Milestone Scheduler: A dynamic timetable is built from the student's subjects and exam dates, with daily study targets and milestone tracking toward each exam.
+8.  Integrated Pomodoro Focus Timer: A customizable study and break timer (default 25 and 5 minutes) with session logging and productivity streaks.
+9.  Student Community & Peer Collaboration Hub: A discussion forum where students ask questions, reply, exchange study resources, mark doubts as resolved, and flag inappropriate posts.
+10.  Analytics Dashboard & Accessibility: Charts of study hours, accuracy trends, and syllabus coverage; full English/Urdu support; and low-bandwidth optimization so the platform works on slow connections.
+11.  Admin Panel & Usage Monitoring: An administrator-only panel showing the number of registered students, the number of uploaded files, and AI API usage, and allowing review and hiding of flagged community posts.
+12.  Chat & Quiz History: Students can return at any time to their earlier AI Tutor chats, document chats, summaries, and past quiz results.
+13.  Export / Download as PDF (secondary priority): A summary or quiz can be downloaded as a PDF for offline reading.
+14.  Usage Limits (Daily Quota): Each user has daily limits on the free plan (for example, 10 AI requests and 3 document uploads per day) with a clear message and reset time when a limit is reached. This controls AI API cost and supports the freemium business model.
+15.  Gamification: Streaks & Badges (secondary priority): A daily learning streak and achievement badges (for example, a Quiz Master badge after passing five quizzes) to keep students motivated.
+16.  Error Handling & AI Feedback: The application handles AI failures, oversized files, and invalid input with clear messages instead of crashing, and every AI answer has a thumbs up / thumbs down option so the quality of the AI can be monitored and improved.
+Abstract
+Learnozi is an AI-powered adaptive learning platform built for Pakistani students preparing for Matric, FSc, MDCAT, and CSS examinations, as well as university students. General-purpose AI chatbots are not aware of local curricula, and most test-preparation tools use static question banks that are the same for every student. Learnozi bridges this gap by combining a syllabus-aware AI tutor, automatic quiz generation from a topic or from the student's own notes, and a self-trained machine-learning model that finds each student's weak topics and adapts later quizzes and revision.
+The platform is built with React.js (Vite) and Node.js, uses Supabase (PostgreSQL, authentication, and file storage) for data, and is deployed on Vercel. The Google Gemini API provides language understanding and generation, while a scikit-learn model trained by the team performs weak-topic diagnosis. Supporting tools include spaced-repetition flashcards, a smart study planner, a Pomodoro focus timer, a peer community, chat and quiz history, PDF export, streaks and badges, and an analytics dashboard. Daily usage limits keep AI consumption sustainable, and an administrator panel allows monitoring of users, uploads, and AI usage.
+Aligned with the Higher Education Commission's ICT-for-education priority, Learnozi offers English and Urdu support and is optimized for low-bandwidth conditions, aiming to make personalized, high-quality exam preparation available to students across Pakistan and not only to those who can afford private tutoring.
+UNDERTAKING
+I shall abide by all the rules set by the department regarding FYP registration, preparation, submission, and evaluation.
+I hereby state that defined project milestones would be completed and submitted within the due date as specified by the department.
+I shall not be using any unfair means to complete my degree project and I admit that Plagiarism is a professional sin, and I shall not use it. In case found guilty of using unfair means my registration can be cancelled.
+Student Name & Signature: ____________________________________________
+Student Name & Signature: ____________________________________________
+Approved by (Optional):
+Supervisor-I Name & Signature: Dr. Mutiullah  _______________________________
+Supervisor-II Name & Signature: ______________________________________
+FYP-1 Coordinator Signature: ________________________________________
+PROJECT EXECUTION GUIDE
+Learnozi – what to build, how to build it, and how to turn it into the final report
+This guide continues from the registration form above. The form tells the department what the project is; this guide tells the two of you what to do, in which order, and how, so that you can start building immediately and collect everything you need for the final report as you go.
+A. Project at a Glance
+Item
+Detail
+Goal
+A bilingual (English/Urdu) AI study platform that explains topics, generates quizzes from a topic or the student's notes, finds each student's weak topics with a self-trained model, and provides flashcards, planner, focus timer, community, history, and analytics in one place.
+Users
+School students (Grades 9-12; Medical, Computer, Commerce, Engineering), university students, and an administrator.
+Core features
+FR-01 to FR-12, FR-14, FR-16 (build these first).
+Secondary features
+FR-13 (PDF export) and FR-15 (streaks and badges): build only after the core is working.
+Technology
+React (Vite) + Node.js serverless functions on Vercel + Supabase (PostgreSQL, Auth, Storage) + Google Gemini API + a scikit-learn model trained in Google Colab.
+Cost
+Everything runs on free plans during FYP (see Section H for the limits).
+Final outcome
+A deployed web application, a trained and evaluated model, a tested system, and a complete FYP report in the department's 7-chapter format.
+B. How the System Fits Together
+Learnozi has three parts: the React web application that the student sees, a small set of Node.js functions on Vercel that do the trusted work, and Supabase, which stores the data and handles login. Gemini is called only from the Vercel functions, never from the browser, so that the secret key stays safe.
+Where each task runs
+Runs directly from the browser to Supabase (protected by Row Level Security)
+Runs in a Vercel function (needs a secret or a trusted check)
+Sign-up, login, password reset (Supabase Auth)
+Every call to the Gemini API: explain, summarize, document chat, quiz generation, answer grading
+Flashcards, study plans and tasks, focus sessions
+Daily-limit check and counter update
+Community posts, replies, and flags
+Quiz scoring and topic-performance update
+Reading history (chats, summaries, quiz results)
+Weak-topic prediction (Python function with the trained model)
+Uploading a file to Supabase Storage
+Administrator statistics and moderation actions
+Rule of thumb: if it needs the Gemini key, the Supabase service-role key, or must be trusted (scoring, limits, admin), put it in a Vercel function. Otherwise let the browser talk to Supabase directly, because it is simpler.
+Figure 1  System architecture of Learnozi
+C. Suggested Division of Work
+Because both of you are frontend developers, split the work by feature and review each other's code. This split is only a suggestion; change it to suit your strengths. In the viva each of you must be able to explain the whole system.
+Area
+Suggested owner
+Authentication and profile, language toggle, AI Tutor, Document Chat, Quiz screens, analytics dashboard
+Muhammad Ahmad
+Flashcards, study planner, focus timer, community hub, admin panel, history and PDF export
+Qurban Khan
+Supabase schema and security policies, Vercel AI functions, weak-topic model, testing, deployment
+Both together (pair on the model and the functions)
+Final report
+Split the seven chapters between you; both review everything
+D. Step-by-Step Build Plan
+The plan has eight phases and about 14 weeks. Adjust the weeks to the real FYP-I and FYP-II deadlines given by the department. At the end of every phase you should have something that works and can be shown to the supervisor.
+Figure 2  Suggested timeline in weeks
+Phase 0: Setup (Week 1)
+1.  Create one GitHub repository and add both members. Work on feature branches and merge with pull requests so each of you can see the other's code.
+2.  Create a Supabase project on the free plan. Note the project URL, the anon key (public), and the service-role key (secret; never put it in the browser or in GitHub).
+3.  Open the SQL Editor in Supabase and run the supplied file learnozi_schema.sql. It creates all 22 tables, turns on Row Level Security, adds the security policies, and inserts three starter badges.
+4.  Create a free Gemini API key in Google AI Studio and decide which Gemini model name to use. Keep the key only as a server-side environment variable.
+5.  Create the React app with Vite and connect the GitHub repository to Vercel, so every push is deployed automatically. Add the environment variables in Vercel (listed in Section H).
+6.  Create the folders src/, api/, ml/, and supabase/ and a .env.example file that lists the variable names without the real values.
+7.  Register two test students and one administrator. Make the administrator by running an SQL update that sets role = 'admin' for that profile.
+Done when: a page is live on Vercel, it can read one row from Supabase, and a test function can call Gemini and return an answer.
+Phase 1: Foundation (Weeks 1-2) – FR-01 and language support
+1.  Reuse the existing landing page and add the Register and Login buttons.
+2.  Build the registration form in two steps: first choose School or University, then show only the matching fields (grade and course, or university, semester, and program). Allow an optional photo uploaded to Supabase Storage.
+3.  Use Supabase Auth sign-up with email confirmation by OTP. After confirmation, insert the profile row.
+4.  Login with email and password. Turn on CAPTCHA protection in the Supabase Auth settings (Supabase supports CAPTCHA providers such as hCaptcha and Cloudflare Turnstile) and add the widget to the sign-up and login forms.
+5.  Add Forgot Password using Supabase's reset-password email.
+6.  Add protected routes (redirect to login without a session), logout, and an admin-only route guard that checks profiles.role.
+7.  Add English and Urdu text files and a language toggle saved in the profile. Switch the page direction to right-to-left for Urdu.
+Done when: a student can register as school or university, verify the OTP, log in with the CAPTCHA, reset the password, and change the language.
+Phase 2: AI Core (Weeks 3-4) – FR-02, FR-03, and the start of FR-14 and FR-16
+1.  Write one shared helper that calls Gemini and a prompt builder (templates are in Section F).
+2.  Build /api/ai/explain: verify the user's token, check today's usage, call Gemini with the grade or program and language, save the chat and messages, log the usage, and return the answer.
+3.  Build the chat screen with a message list, input box, loading state, and error message. Add an image attachment (sent to Gemini as an image input) and a voice button that uses the browser's Web Speech API (it works best in Chrome; set the language to English or Urdu).
+4.  Document upload: let the browser upload the file straight to Supabase Storage, and check the 5 MB limit both in the browser and in the bucket settings. Do not send the file through the Vercel function, because Vercel limits the request size of functions (about 4.5 MB; check the current Vercel documentation).
+5.  Build /api/docs/summarize: download the file from Storage, extract its text with a PDF library (or pass the file to Gemini), generate the summary and key points, store them, and create a chat linked to the document.
+6.  Build /api/docs/chat: put the document text in the prompt, and show the student how much of the document was used (characters used out of the total).
+7.  Add the daily counters and a friendly limit message, and catch network and AI errors so the screen never crashes.
+Done when: you can ask the tutor by text, image, and voice, upload a PDF of up to 5 MB and chat with it, and the limits and error messages behave correctly.
+Phase 3: Assessment (Weeks 5-6) – FR-04, FR-05, FR-12
+1.  Build the quiz setup screen: topic or document, quiz type (Short, Long, MCQ, Mixed), and number of questions.
+2.  Build /api/quiz/generate. Ask Gemini for strict JSON (format in Section F), validate it, and save the quiz and its questions.
+3.  Build the quiz screen: one question at a time with a progress bar on top. Lock the navigation while the attempt is in progress, warn before leaving, and mark the attempt as terminated if the student closes or leaves.
+4.  Check answers on the spot. MCQs are compared with the stored answer. For short and long answers, send the student's answer and the model answer to Gemini and ask for a score and one line of feedback in JSON.
+5.  Build /api/quiz/submit: calculate the score, save the attempt and answers, and update topic_performance with the upsert query in Section H.
+6.  Build the History page that lists past chats, summaries, and quiz attempts and opens any of them.
+7.  Weak-topic detection: first use a simple rule (accuracy below 60% means weak) so the feature works end to end. In Phase 3 or 4, replace or support it with the trained model (Section G). Add the weak topics to the next quiz prompt.
+Done when: a quiz can be generated, taken, locked, scored, and found in the history, and weak topics appear on the dashboard and shape the next quiz.
+Phase 4: Study Tools and Analytics (Weeks 7-8) – FR-06, FR-07, FR-08, FR-10
+1.  Flashcards: create, edit, delete, and categorize. In the review screen the student rates recall from 0 to 5; apply the SM-2 spaced-repetition rule (Section F) to set the next review date. Optionally let the AI create flashcards from a document.
+2.  Study planner: take subjects, exam dates, and available minutes per day; divide the days left before each exam into tasks; let the student tick tasks off and show milestone progress.
+3.  Focus timer: default 25 minutes of study and 5 of break (editable), with start, pause, and reset. Save each completed session to focus_sessions.
+4.  Analytics: draw study hours per day (focus sessions), accuracy trend (quiz attempts), and syllabus coverage (topics practised out of the topics the student added to the planner) using a free chart library.
+5.  Low bandwidth: lazy-load pages, compress images, avoid heavy libraries, and test with the browser's network throttling.
+Done when: each tool saves its data, the dashboard charts show real numbers, and every page is usable on a throttled connection.
+Phase 5: Platform Features (Weeks 9-10) – FR-09, FR-11, FR-14, FR-16
+1.  Community: post list, new post, replies, a resolved toggle, and a flag button that inserts a post_flags row. Everyone can read visible posts; only the author edits their own.
+2.  Admin panel (admin role only): call /api/admin/stats for the totals (query in Section H), show flagged posts, and add Hide and Dismiss actions.
+3.  Finish the usage limits: keep the limits in one configuration, show the remaining quota in the interface, and reset by date.
+4.  Finish error handling: a global error boundary, toast messages, and specific messages for limit reached, AI busy, wrong file type, and file too large.
+5.  Add thumbs up and down under every AI answer and save them in ai_feedback.
+Done when: two accounts can discuss, the administrator can moderate and see statistics, and limits and errors are handled gracefully.
+Phase 6: Secondary Features and Hardening (Weeks 11-12) – FR-13, FR-15
+1.  PDF export with the free jsPDF library for summaries and quizzes.
+2.  Streaks (SQL in Section H) and badges: award Quiz Master after five passed quizzes (for example, a score of 60% or more), a 7-day streak badge, and a flashcard badge.
+3.  Security check: use two student accounts and confirm that student A can never read student B's rows; confirm the service-role key and Gemini key never reach the browser; keep rate limits on AI endpoints.
+4.  Write and run test cases for every requirement (use the Done-when column in Section E as your starting point), fix the bugs, and prepare demo data.
+Done when: all core requirements pass their tests and the deployed version is stable.
+Phase 7: Documentation and Submission (Weeks 12-14, and continuously)
+Keep screenshots of every screen as you build it; the report needs them.
+Keep a meeting log with your supervisor and note what was agreed.
+Write each report chapter right after the matching phase finishes (see Section K), not at the end.
+Practise the demo: register, ask the tutor, upload a document, take a quiz, show a weak topic, show the admin panel.
+E. Requirement-by-Requirement Build Notes
+Use this table while coding and while writing test cases. Each row says how to build the requirement and how you will know it is finished.
+FR
+How to build it
+Done when
+FR-01
+Supabase Auth (email sign-up, OTP, CAPTCHA, password reset); profiles table with school / university fields; protected routes and role check.
+A new user can register, verify by OTP, log in with CAPTCHA, reset the password, and see the correct profile fields.
+FR-02
+Chat page + /api/ai/explain function; prompt includes grade/program and language; image sent to Gemini as an input; voice via the browser Web Speech API.
+Text, image, and voice questions each return a step-by-step answer with an example and summary.
+FR-03
+Browser uploads the file to Supabase Storage (5 MB limit); /api/docs/summarize and /api/docs/chat read the text; one chat row per document; usage indicator = characters used / total.
+A PDF of up to 5 MB gets a summary and its own chat; a larger file is refused with a message.
+FR-04
+/api/quiz/generate asks Gemini for strict JSON; /api/quiz/submit scores; short/long answers graded by Gemini; navigation lock while attempt status is in_progress.
+Each quiz type works; leaving mid-quiz marks the attempt terminated; progress shows on the top bar and dashboard.
+FR-05
+topic_performance updated after each quiz; rule-based flag first (accuracy below 60%), then the trained model via /api/adaptive/predict; weak topics added to the next quiz prompt.
+After poor answers on a topic it appears as weak and the next quiz includes it.
+FR-06
+Flashcards CRUD with category; review rating 0-5; SM-2 rule updates ease factor, interval, and next_review_date.
+Easy cards return later, hard cards sooner; "due today" list is correct.
+FR-07
+Planner form (subjects, exam dates, daily minutes); simple algorithm divides the days until each exam into tasks; tasks can be marked done.
+A timetable with daily targets appears and progress updates when tasks are ticked.
+FR-08
+Timer component (default 25/5, editable); on completion insert a focus_sessions row; update streak.
+Timer runs, switches to break, and each completed session appears in the log.
+FR-09
+posts, replies, post_flags tables with RLS; list/new post/reply pages; resolved toggle; flag button.
+Two accounts can post and reply; a flag appears for the administrator.
+FR-10
+Chart library on data from focus_sessions, quiz_attempts, and topic coverage; i18n JSON files (en, ur) with right-to-left layout; lazy loading and small assets.
+Charts show real data; the language toggle changes every screen; pages stay usable on a throttled connection.
+FR-11
+profiles.role = 'admin'; /api/admin/stats runs the statistics SQL; flagged-posts list with Hide / Dismiss.
+Admin sees correct totals; a student cannot open the panel.
+FR-12
+History page reading chats, messages, documents.summary, and quiz_attempts for the logged-in user.
+Yesterday's chat, summary, and quiz result open correctly today.
+FR-13
+jsPDF (client-side) builds a PDF from a summary or quiz already in the page.
+The downloaded PDF contains the correct content.
+FR-14
+usage_counters row per user per day; function checks the counter before every AI call and increments it; UI shows remaining quota.
+The 11th request of the day is refused with a reset-time message; the counter resets the next day.
+FR-15
+Streak SQL on profiles; badge rules insert rows into user_badges; badges shown on the dashboard.
+Streak grows daily and resets after a missed day; the Quiz Master badge is awarded after five passed quizzes.
+FR-16
+Error boundary and toast messages; specific messages for 429, 503, wrong file type, and file too large; thumbs up/down saved to ai_feedback.
+Simulated AI failure and a 6 MB upload both show friendly messages without a crash; feedback is stored.
+F. AI Design: Prompts and Formats
+Tutor prompt (template)
+You are a patient tutor for Pakistani students.
+Student level: {grade or program}. Course track: {course}.
+Answer in: {English | Urdu}.
+Explain the topic below step by step, give one worked example,
+and finish with a 3-point revision summary. Keep it exam-focused.
+Topic: {student question}
+Document chat prompt (template)
+Answer ONLY from the document text below. If the answer is not in
+the document, say that it is not covered. Answer in {language}.
+Document: """{document text}"""
+Question: {student question}
+Quiz prompt and the JSON format to require
+Create {count} {quizType} questions on "{topic}" for {level}.
+Give extra attention to these weak topics if relevant: {weakTopics}.
+Return ONLY valid JSON in exactly this shape:
+{
+  "questions": [
+    {
+      "type": "mcq | short | long",
+      "question": "question text",
+      "options": ["A ...", "B ...", "C ...", "D ..."],   // mcq only
+      "answer": "correct option or model answer",
+      "explanation": "why this is correct",
+      "topic_tag": "sub-topic name"
+    }
+  ]
+}
+Answer-grading prompt for short and long questions
+Question: {question}
+Model answer: {answer}
+Student answer: {student answer}
+Return ONLY JSON: {"score": a number from 0 to 1, "feedback": "one short sentence"}
+Rules to follow for every AI call
+Always parse and validate the JSON (right number of questions, required fields present). If it is invalid, retry once, then show a friendly error.
+Use a low temperature for quizzes so the format stays stable.
+Never call Gemini from the browser, and never print or log the API key.
+For document chat, tell the model to answer only from the document, so answers stay grounded.
+Log every call in ai_usage_log and count it in usage_counters.
+Spaced-repetition rule (SM-2) for flashcards
+Each card stores an ease factor (start 2.5) and an interval in days. After a review with rating q (0 to 5): if q is below 3, set the interval to 1 day. Otherwise the interval is 1 day for the first success, 6 days for the second, and then previous interval multiplied by the ease factor, rounded. Update the ease factor as EF = EF + (0.1 - (5 - q) x (0.08 + (5 - q) x 0.02)) and never let it fall below 1.3. The next review date is today plus the interval.
+G. The Self-Trained Weak-Topic Model
+Your supervisor asked for a model that you train yourselves, linked to the Gemini API. This is the part that proves your own AI work, so build it carefully and be honest about its data.
+1.  Define the task: for each student and topic, predict whether the topic is weak (1) or not weak (0).
+2.  Choose the input features: number of questions attempted, accuracy, average time per question, and days since the last attempt.
+3.  Prepare data. At the start there will be no real students, so write a small script that generates a few thousand realistic rows (labelled by a rule with some random noise) so you can build the whole pipeline. Later, export real rows from your database and retrain. In the report and the viva, say clearly that the first data was simulated and that real data refines the model.
+4.  Train in Google Colab with scikit-learn: split into training and test sets, train a Decision Tree and a Random Forest, and compare accuracy, precision, recall, F1-score, and the confusion matrix. Choose the better model and note which features matter most.
+5.  Save the model with joblib (keep the file small) and place it in the ml/ folder.
+6.  Serve it with a small Python function on Vercel (/api/adaptive/predict) that loads the model and returns the weak/not-weak flags for the topics sent to it.
+7.  Connect it: after each quiz submission, call the function, write the result into topic_performance (weak_flag and predicted_level), show weak topics on the dashboard, and add them to the next quiz prompt.
+8.  Keep the rule-based version as a fallback if the model function is unavailable.
+Training data columns
+Column
+Meaning
+attempts
+Number of questions the student has attempted on the topic
+accuracy
+Correct answers divided by attempts (0 to 1)
+avg_time
+Average seconds taken per question on the topic
+days_since
+Days since the last attempt on the topic
+weak
+Label to predict: 1 = weak topic, 0 = not weak
+H. Database, Free Plans, and Limits
+Database tables
+The supplied learnozi_schema.sql creates the following 22 tables. Users themselves are stored by Supabase Auth; the profiles table adds the academic details.
+Table
+Purpose
+profiles
+Stores each registered user's academic profile, role, and streak data.
+documents
+Metadata of notes and PDFs uploaded for Document Chat.
+chats
+Conversation threads; each uploaded document has its own thread.
+messages
+Individual messages inside a chat.
+ai_feedback
+Thumbs up/down ratings on AI responses.
+ai_usage_log
+One row per AI API call; used by the Admin Panel.
+usage_counters
+Per-user daily quota counters for the free plan.
+quizzes
+A generated quiz.
+quiz_questions
+Questions belonging to a quiz.
+quiz_attempts
+One attempt of a quiz by a student.
+attempt_answers
+Student's answer to each question in an attempt.
+topic_performance
+Per-topic performance used by the Adaptive Learning Engine.
+flashcards
+Flashcards with spaced-repetition scheduling data.
+flashcard_reviews
+History of flashcard reviews.
+study_plans
+A study plan for a subject and exam date.
+study_tasks
+Milestones and daily tasks inside a plan.
+focus_sessions
+Logged Pomodoro sessions.
+posts
+Community questions and discussions.
+replies
+Replies to community posts.
+post_flags
+User reports on inappropriate posts, reviewed by the administrator.
+badges
+Catalogue of achievement badges.
+user_badges
+Badges awarded to students.
+Free plans and what they mean for the project
+Service
+Plan
+Key limits (check the official pages again before relying on them)
+What to do
+Supabase
+Free
+About 500 MB database, 1 GB file storage, and 50,000 monthly active users. Inactive projects are paused after about 7 days. Built-in email sending is meant for testing.
+Open the project before every demo. Add a custom email (SMTP) provider for real OTP delivery.
+Vercel
+Hobby (free)
+For personal, non-commercial use. Serverless functions have limits on run time and request size.
+Keep AI calls short; upload files directly to Supabase Storage. A real paid product would need a paid plan.
+Google Gemini API
+Free tier
+Per-minute and per-day request limits (see Google AI Studio for the current numbers).
+Use the per-user daily limits (FR-14), avoid repeated calls, and show clear messages.
+Google Colab
+Free
+Sessions are temporary.
+Train, export the model file, and save it in the repository.
+GitHub
+Free
+Private or public repositories.
+Never commit the .env file or any secret key.
+Default daily limits (change them in one configuration)
+Limit
+Free plan default
+AI requests per day (explain, document chat, quiz generation)
+10
+Document uploads per day
+3
+Maximum file size
+5 MB
+SQL you will need (use these inside your functions)
+The symbols $1, $2, and so on stand for values your code supplies.
+Daily usage counter (create or add one, and return the new count)
+INSERT INTO usage_counters (user_id, usage_date, ai_chats)
+VALUES ($1, CURRENT_DATE, 1)
+ON CONFLICT (user_id, usage_date)
+DO UPDATE SET ai_chats = usage_counters.ai_chats + 1
+RETURNING ai_chats;
+Update topic performance after a quiz
+INSERT INTO topic_performance (user_id, subject, topic, attempts, correct, accuracy)
+VALUES ($1, $2, $3, $4, $5, $5::numeric / $4)
+ON CONFLICT (user_id, subject, topic)
+DO UPDATE SET
+  attempts = topic_performance.attempts + EXCLUDED.attempts,
+  correct  = topic_performance.correct  + EXCLUDED.correct,
+  accuracy = (topic_performance.correct + EXCLUDED.correct)::numeric
+           / (topic_performance.attempts + EXCLUDED.attempts),
+  updated_at = now();
+Daily streak
+UPDATE profiles
+SET current_streak = CASE
+      WHEN last_active_date = CURRENT_DATE     THEN current_streak
+      WHEN last_active_date = CURRENT_DATE - 1 THEN current_streak + 1
+      ELSE 1 END,
+    last_active_date = CURRENT_DATE
+WHERE id = $1;
+ 
+UPDATE profiles
+SET longest_streak = GREATEST(longest_streak, current_streak)
+WHERE id = $1;
+Administrator statistics
+SELECT
+  (SELECT COUNT(*) FROM profiles WHERE role = 'student') AS total_students,
+  (SELECT COUNT(*) FROM documents)                        AS total_uploads,
+  (SELECT COUNT(*) FROM ai_usage_log
+    WHERE created_at >= date_trunc('month', now()))       AS ai_calls_this_month;
+Flagged posts waiting for review
+SELECT p.id, p.title, COUNT(f.id) AS flags
+FROM posts p JOIN post_flags f ON f.post_id = p.id
+WHERE f.status = 'open'
+GROUP BY p.id, p.title
+ORDER BY flags DESC;
+Make a user an administrator (run once in the SQL Editor)
+UPDATE profiles SET role = 'admin' WHERE id = '<the user id>';
+Environment variables
+Name
+Where
+Purpose
+SUPABASE_URL
+Browser and server
+Address of the Supabase project
+SUPABASE_ANON_KEY
+Browser
+Public key; access is restricted by Row Level Security
+SUPABASE_SERVICE_ROLE_KEY
+Server only
+Privileged key; never expose it
+GEMINI_API_KEY
+Server only
+Key for the Gemini API
+GEMINI_MODEL
+Server only
+Name of the Gemini model to call
+I. Risks and How to Handle Them
+Risk
+What could happen
+What to do
+Scope is large (16 requirements)
+Deadline missed
+Finish the core first; treat FR-13 and FR-15 as optional; review progress every week.
+Gemini free limits or outage
+AI features fail during use or demo
+Daily limits, friendly errors, one retry, and avoid repeated identical calls.
+Supabase project paused
+Whole app fails on demo day
+Open the project the day before and keep it active.
+Limited backend experience
+Delays and bugs
+Start with small functions, follow the patterns in this guide, pair on the hard parts, and ask the supervisor early.
+Too little data for the model
+Over-claimed accuracy
+Use simulated plus real data, state this honestly, and keep the rule-based fallback.
+Wrong Row Level Security policy
+Data exposed or blocked
+Test with two accounts and re-test after every schema change.
+API key leaked
+Misuse and cost
+Keep keys server-side, never commit .env, and replace a key if it is ever exposed.
+OTP emails not delivered
+Users cannot register
+Set up a custom email provider and test it in Phase 1.
+AI gives a wrong answer
+Misleading students
+Ground document answers in the text, add thumbs feedback, and add a short "check important facts" note.
+J. Points to Confirm and Keep in Mind
+Tell Dr. Mutiullah about the changes since the registration form: the database is now Supabase and hosting is Vercel only (the submitted form listed Vercel and Render), and requirements FR-11 to FR-16 were added. Ask him to approve them and which ones he wants as core.
+Choose "Applied Project" as the project type; the submitted form still showed both options.
+The submitted abstract mentioned Next.js by mistake; your project uses React (Vite). Use the abstract in this document from now on.
+If you use AI coding assistants, check the department's rule and mention it in the report. Whatever tool you use, both of you must understand and be able to explain every part of your code in the viva.
+Official numbers such as free-plan limits change; re-check them when you start and before the demo.
+K. Turning This Into the Final Report
+The department's report has a title page, front matter, seven chapters, references, and an optional appendix. Use this table to know what to write and when.
+Chapter
+What goes in it
+Take it from
+When
+1 Introduction
+Background, problem, objectives, scope, advantages, relevance
+Section A and the abstract; already drafted in the Chapters 1-3 file
+Now (review)
+2 Existing Systems
+Existing tools, drawbacks, need for a new system
+Already drafted in the Chapters 1-3 file
+Now (review)
+3 Requirement Engineering
+Requirements, needs, Gantt chart, hurdles
+Registration form requirements, Section E, Section I; already drafted
+Now (update FR-11 to FR-16 after supervisor approval)
+4 Design
+Process model, architecture, ERD, UML diagrams
+Sections B, F, G; draw the diagrams as the design is fixed
+After Phases 1-3
+5 Database
+Why Supabase, queries, tables, schema diagram
+Section H and learnozi_schema.sql
+After Phase 0 and as tables change
+6 Development and Implementation
+Tools, coding, screenshots, deployment
+Phases 0-6, Section H, screenshots you keep
+While building
+7 Testing
+Test methods, plans, cases, results
+The Done-when column in Section E
+After Phase 6
+References and Appendix
+IEEE references; SQL script and API list
+Sources you actually used; the schema file
+Throughout
+Keep as you work: screenshots of every screen, the Git history, GitHub issues for bugs, the meeting log, and the test results. These are the evidence behind your report.
