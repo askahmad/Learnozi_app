@@ -6,6 +6,7 @@ import 'firebase_options.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'services/auth_service.dart';
+import 'utils/app_theme.dart';
 
 void main() async {
   // Ensure Flutter engine bindings are initialized before async Firebase call
@@ -31,14 +32,7 @@ class LearnoziApp extends StatelessWidget {
     return MaterialApp(
       title: 'Learnozi',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF4F46E5),
-          primary: const Color(0xFF4F46E5),
-        ),
-        scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.lightTheme,
       home: const AuthWrapper(),
     );
   }

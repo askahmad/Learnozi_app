@@ -33,7 +33,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
             ),
             Text(
-              'System stats & community moderation (FR-11)',
+              'System stats, compliance & community moderation',
               style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
             ),
           ],

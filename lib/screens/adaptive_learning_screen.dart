@@ -47,7 +47,7 @@ class _AdaptiveLearningScreenState extends State<AdaptiveLearningScreen> {
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
             ),
             Text(
-              'Self-Trained ML Weak-Topic Diagnosis (FR-05)',
+              'Self-Trained ML Weak-Topic Diagnostic Engine',
               style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
             ),
           ],

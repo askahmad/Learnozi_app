@@ -44,7 +44,7 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                'Formatted Study Document Export (FR-13):',
+                'Formatted Study Document Export:',
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
               ),
               const SizedBox(height: 10),

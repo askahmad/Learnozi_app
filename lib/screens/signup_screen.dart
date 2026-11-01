@@ -323,8 +323,8 @@ class _SignupScreenState extends State<SignupScreen> {
                           ),
                           const SizedBox(height: 16),
 
-                          // Academic Profile Setup (FR-01)
-                          _buildFieldLabel('Academic Level (FR-01)'),
+                          // Academic Profile Setup
+                          _buildFieldLabel('Academic Level & Track'),
                           const SizedBox(height: 6),
                           SegmentedButton<EducationType>(
                             segments: const [

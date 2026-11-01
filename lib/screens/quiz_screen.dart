@@ -117,7 +117,7 @@ class _QuizScreenState extends State<QuizScreen> {
           ],
         ),
         content: const Text(
-          'Leaving or switching screens mid-test will immediately terminate your attempt with 0 marks (FR-04 Anti-Cheat Policy). Are you sure you want to quit?',
+          'Leaving or switching screens mid-test will immediately terminate your attempt with 0 marks according to examination security protocols. Are you sure you want to quit?',
           style: TextStyle(fontSize: 13.5, color: Color(0xFF475569)),
         ),
         actions: [
@@ -458,7 +458,10 @@ class _QuizScreenState extends State<QuizScreen> {
 
                 // If MCQ -> Options
                 if (q.type == QuestionType.mcq && q.options.isNotEmpty)
-                  ...q.options.map((opt) {
+                  ...q.options.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final opt = entry.value;
+                    final optionLetter = String.fromCharCode(65 + index);
                     final isSelected = _selectedMcqOption == opt;
                     final isCorrect = opt.trim().toLowerCase() == q.correctAnswer.trim().toLowerCase() ||
                         opt.startsWith(q.correctAnswer.split(')').first);
@@ -466,43 +469,81 @@ class _QuizScreenState extends State<QuizScreen> {
                     Color bgColor = Colors.white;
                     Color borderColor = const Color(0xFFE2E8F0);
                     Color textColor = const Color(0xFF1E293B);
+                    Color pillBg = const Color(0xFFF1F5F9);
+                    Color pillText = const Color(0xFF64748B);
 
                     if (_isAnswerSubmitted) {
                       if (isCorrect) {
                         bgColor = const Color(0xFFECFDF5);
                         borderColor = const Color(0xFF10B981);
                         textColor = const Color(0xFF065F46);
+                        pillBg = const Color(0xFF10B981);
+                        pillText = Colors.white;
                       } else if (isSelected) {
                         bgColor = const Color(0xFFFEF2F2);
                         borderColor = const Color(0xFFEF4444);
                         textColor = const Color(0xFF991B1B);
+                        pillBg = const Color(0xFFEF4444);
+                        pillText = Colors.white;
                       }
+                    } else if (isSelected) {
+                      bgColor = const Color(0xFFEEF2FF);
+                      borderColor = const Color(0xFF4F46E5);
+                      textColor = const Color(0xFF4F46E5);
+                      pillBg = const Color(0xFF4F46E5);
+                      pillText = Colors.white;
                     }
 
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.only(bottom: 12),
                       child: InkWell(
                         onTap: _isAnswerSubmitted ? null : () => _submitMcqAnswer(opt),
-                        borderRadius: BorderRadius.circular(14),
-                        child: Container(
+                        borderRadius: BorderRadius.circular(16),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           decoration: BoxDecoration(
                             color: bgColor,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: borderColor, width: isSelected ? 1.5 : 1.0),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: borderColor, width: isSelected ? 1.8 : 1.0),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF0F172A).withValues(alpha: 0.03),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
                           child: Row(
                             children: [
+                              Container(
+                                width: 30,
+                                height: 30,
+                                decoration: BoxDecoration(
+                                  color: pillBg,
+                                  shape: BoxShape.circle,
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  optionLetter,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 13,
+                                    color: pillText,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 14),
                               Expanded(
                                 child: Text(
                                   opt,
-                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textColor),
+                                  style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: textColor),
                                 ),
                               ),
                               if (_isAnswerSubmitted && isCorrect)
-                                const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20),
+                                const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 22),
                               if (_isAnswerSubmitted && isSelected && !isCorrect)
-                                const Icon(Icons.cancel_rounded, color: Color(0xFFEF4444), size: 20),
+                                const Icon(Icons.cancel_rounded, color: Color(0xFFEF4444), size: 22),
                             ],
                           ),
                         ),

@@ -32,11 +32,32 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
     'Solve quadratic equation by factorization',
   ];
 
+  final List<String> _baseLevels = const [
+    'FSc / College',
+    'Matric (9-10th)',
+    'MDCAT / ECAT',
+    'University',
+    'CSS / PMS',
+  ];
+
+  List<String> get _availableLevels {
+    final list = List<String>.from(_baseLevels);
+    final profileLevel = _userService.profile.academicLevelString;
+    if (profileLevel.isNotEmpty && !list.contains(profileLevel)) {
+      list.insert(0, profileLevel);
+    }
+    if (!list.contains(_selectedLevel)) {
+      list.insert(0, _selectedLevel);
+    }
+    return list;
+  }
+
   @override
   void initState() {
     super.initState();
     _selectedLanguage = _userService.profile.language;
-    _selectedLevel = _userService.profile.academicLevelString;
+    final profileLevel = _userService.profile.academicLevelString;
+    _selectedLevel = profileLevel.isNotEmpty ? profileLevel : 'FSc / College';
     // Welcome message from tutor
     _messages.add(
       ChatMessage(
@@ -322,17 +343,18 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
                   ],
                 ),
                 DropdownButton<String>(
-                  value: _selectedLevel,
+                  value: _availableLevels.contains(_selectedLevel)
+                      ? _selectedLevel
+                      : _availableLevels.first,
                   underline: const SizedBox(),
                   icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF4F46E5), size: 18),
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF4F46E5)),
-                  items: const [
-                    DropdownMenuItem(value: 'Matric (9-10th)', child: Text('Matric (9-10th)')),
-                    DropdownMenuItem(value: 'FSc / College', child: Text('FSc / College')),
-                    DropdownMenuItem(value: 'MDCAT / ECAT', child: Text('MDCAT / ECAT')),
-                    DropdownMenuItem(value: 'CSS / PMS', child: Text('CSS / PMS')),
-                    DropdownMenuItem(value: 'University', child: Text('University')),
-                  ],
+                  items: _availableLevels.map((lvl) {
+                    return DropdownMenuItem<String>(
+                      value: lvl,
+                      child: Text(lvl, overflow: TextOverflow.ellipsis),
+                    );
+                  }).toList(),
                   onChanged: (val) {
                     if (val != null) setState(() => _selectedLevel = val);
                   },

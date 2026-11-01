@@ -5,6 +5,9 @@ import '../services/auth_service.dart';
 import '../services/user_service.dart';
 import '../services/quota_service.dart';
 import '../services/adaptive_service.dart';
+import '../services/flashcard_service.dart';
+import '../services/study_planner_service.dart';
+import '../utils/app_colors.dart';
 import 'ai_tutor_screen.dart';
 import 'document_chat_screen.dart';
 import 'quiz_screen.dart';
@@ -31,6 +34,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final _userService = UserService();
   final _quotaService = QuotaService();
   final _adaptiveService = AdaptiveService();
+  final _plannerService = StudyPlannerService();
+  final _flashcardService = FlashcardService();
 
   @override
   void initState() {
@@ -38,6 +43,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _userService.addListener(_onStateChanged);
     _quotaService.addListener(_onStateChanged);
     _adaptiveService.addListener(_onStateChanged);
+    _plannerService.addListener(_onStateChanged);
+    _flashcardService.addListener(_onStateChanged);
   }
 
   @override
@@ -45,6 +52,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _userService.removeListener(_onStateChanged);
     _quotaService.removeListener(_onStateChanged);
     _adaptiveService.removeListener(_onStateChanged);
+    _plannerService.removeListener(_onStateChanged);
+    _flashcardService.removeListener(_onStateChanged);
     super.dispose();
   }
 
@@ -126,7 +135,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text('Academic Profile Setup (FR-01)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text('Academic Profile Setup', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  const Text('Personalize your syllabus, AI explanations, and mock test curriculum', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
                   const SizedBox(height: 14),
                   TextField(
                     controller: nameController,
@@ -158,7 +169,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 14),
                   if (eduType == EducationType.school) ...[
                     DropdownButtonFormField<String>(
-                      initialValue: schoolGrade,
+                      initialValue: ['9th (Matric)', '10th (Matric)', '11th (FSc Part 1)', '12th (FSc Part 2)'].contains(schoolGrade)
+                          ? schoolGrade
+                          : '11th (FSc Part 1)',
                       decoration: InputDecoration(
                         labelText: 'Grade / Class',
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -172,7 +185,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      initialValue: schoolCourse,
+                      initialValue: ['Pre-Medical', 'Pre-Engineering', 'Computer Science', 'Commerce'].contains(schoolCourse)
+                          ? schoolCourse
+                          : 'Pre-Medical',
                       decoration: InputDecoration(
                         labelText: 'Course / Track',
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -262,11 +277,19 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
   // --- 1. DASHBOARD VIEW ---
   Widget _buildDashboardView(String displayName) {
     final profile = _userService.profile;
     final remainingQuota = _quotaService.remainingAiRequests;
     final weakTopics = _adaptiveService.weakTopics;
+    final primaryWeak = weakTopics.isNotEmpty ? weakTopics.first : null;
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -278,30 +301,75 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
                 children: [
-                  Text(
-                    'Welcome back,',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey.shade600,
-                    ),
+                  Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 22,
+                        backgroundColor: AppColors.primary,
+                        child: Text(
+                          displayName.isNotEmpty ? displayName[0].toUpperCase() : 'S',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: AppColors.success,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '$displayName 👋',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF0F172A),
-                      letterSpacing: -0.4,
-                    ),
-                  ),
-                  Text(
-                    profile.academicLevelString,
-                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${_getGreeting()},',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        displayName,
+                        style: const TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceElevated,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          profile.academicLevelString,
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -313,23 +381,35 @@ class _HomeScreenState extends State<HomeScreen> {
                       context,
                       MaterialPageRoute(builder: (_) => const BadgesScreen()),
                     ),
+                    borderRadius: BorderRadius.circular(20),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFF7ED),
+                        color: AppColors.streakOrangeSoft,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: const Color(0xFFFFEDD5)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.streakOrange.withValues(alpha: 0.12),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.local_fire_department_rounded, size: 16, color: Color(0xFFEA580C)),
+                          const Icon(
+                            Icons.local_fire_department_rounded,
+                            size: 16,
+                            color: AppColors.streakOrange,
+                          ),
                           const SizedBox(width: 4),
                           Text(
-                            '${profile.currentStreak} Days',
+                            '${profile.currentStreak}d',
                             style: const TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
                               color: Color(0xFFC2410C),
                             ),
                           ),
@@ -338,25 +418,25 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // Daily AI Quota Pill (FR-14)
+                  // Daily AI Quota Pill
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEEF2FF),
+                      color: AppColors.primarySoft,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFC7D2FE)),
+                      border: Border.all(color: AppColors.primaryBorder),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.bolt_rounded, size: 16, color: Color(0xFF4F46E5)),
-                        const SizedBox(width: 4),
+                        const Icon(Icons.bolt_rounded, size: 16, color: AppColors.primary),
+                        const SizedBox(width: 3),
                         Text(
-                          '$remainingQuota AI Left',
+                          '$remainingQuota AI',
                           style: const TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF4F46E5),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primary,
                           ),
                         ),
                       ],
@@ -366,130 +446,243 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
 
           // Hero AI Banner
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                colors: [Color(0xFF4338CA), Color(0xFF6D28D9)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF4F46E5).withValues(alpha: 0.35),
-                  blurRadius: 18,
+                  color: const Color(0xFF4F46E5).withValues(alpha: 0.32),
+                  blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
               ],
             ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.auto_awesome, color: Colors.white, size: 13),
+                          SizedBox(width: 5),
+                          Text(
+                            'AI Study Companion • Gemini 2.5',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.school_rounded, color: Colors.white, size: 20),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Master Any Topic with AI',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Step-by-step syllabus explanation, worked examples, and revision summaries in English & Urdu.',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 13,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () => setState(() => _currentIndex = 1),
+                      icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16),
+                      label: const Text('Ask Tutor Now'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppColors.primary,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const DocumentChatScreen()),
+                      ),
+                      icon: const Icon(Icons.upload_file_rounded, size: 16, color: Colors.white),
+                      label: const Text('Upload Notes', style: TextStyle(color: Colors.white)),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.4), width: 1.2),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Daily Study Progress Card
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border),
+              boxShadow: AppColors.cardShadow,
+            ),
             child: Row(
               children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySoft,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.track_changes_rounded, color: AppColors.primary, size: 22),
+                ),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.auto_awesome, color: Colors.white, size: 13),
-                            SizedBox(width: 5),
-                            Text(
-                              'Learnozi AI Study Companion',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      const Text(
-                        'Master any topic with AI',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Step-by-step syllabus explanation, worked examples, and exam summaries in English & Urdu.',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          fontSize: 12.5,
-                          height: 1.35,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      ElevatedButton(
-                        onPressed: () => setState(() => _currentIndex = 1),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF4F46E5),
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Today\'s Study Target',
+                            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                           ),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Ask Tutor Now',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                            SizedBox(width: 6),
-                            Icon(Icons.arrow_forward_rounded, size: 16),
-                          ],
+                          Text(
+                            '${_plannerService.totalFocusMinutesLogged} / 45m',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primary),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: LinearProgressIndicator(
+                          value: (_plannerService.totalFocusMinutesLogged / 45).clamp(0.0, 1.0),
+                          minHeight: 6,
+                          backgroundColor: AppColors.surfaceElevated,
+                          valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
                         ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 12),
-                Container(
-                  width: 68,
-                  height: 68,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
+                InkWell(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PomodoroTimerScreen()),
                   ),
-                  child: const Icon(
-                    Icons.school_rounded,
-                    color: Colors.white,
-                    size: 38,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.primarySoft,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.play_arrow_rounded, size: 16, color: AppColors.primary),
+                        SizedBox(width: 2),
+                        Text(
+                          'Focus',
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.primary),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 22),
 
           // Section Title: Quick Actions
-          const Text(
-            'Explore Study Modules',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF0F172A),
-              letterSpacing: -0.3,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Core Study Modules',
+                    style: TextStyle(
+                      fontSize: 16.5,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  Text(
+                    'Personalized curriculum & active learning tools',
+                    style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+              InkWell(
+                onTap: () => setState(() => _currentIndex = 3),
+                borderRadius: BorderRadius.circular(8),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  child: Row(
+                    children: [
+                      Text(
+                        'View All',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primary),
+                      ),
+                      Icon(Icons.chevron_right_rounded, size: 16, color: AppColors.primary),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
 
@@ -498,13 +691,14 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisCount: 2,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 14,
-            mainAxisSpacing: 14,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
             childAspectRatio: 1.15,
             children: [
               _buildFeatureCard(
                 title: 'PDF Notes Chat',
-                description: 'Summarize notes (FR-03)',
+                description: 'Query lecture slides & notes',
+                badgeText: 'AI Document',
                 icon: Icons.upload_file_rounded,
                 color: const Color(0xFF7C3AED),
                 bgColor: const Color(0xFFF3E8FF),
@@ -515,15 +709,17 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               _buildFeatureCard(
                 title: 'Adaptive Quizzes',
-                description: 'Anti-cheat lock (FR-04)',
+                description: 'MCQs & mocks with anti-cheat',
+                badgeText: 'Proctored',
                 icon: Icons.quiz_rounded,
                 color: const Color(0xFF059669),
                 bgColor: const Color(0xFFECFDF5),
                 onTap: () => setState(() => _currentIndex = 2),
               ),
               _buildFeatureCard(
-                title: 'Weak Topics Diagnostic',
-                description: 'ML Diagnostic (FR-05)',
+                title: 'Diagnostic Hub',
+                description: 'ML detection of syllabus gaps',
+                badgeText: 'Self-Trained ML',
                 icon: Icons.psychology_rounded,
                 color: const Color(0xFFEF4444),
                 bgColor: const Color(0xFFFEF2F2),
@@ -534,7 +730,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               _buildFeatureCard(
                 title: 'Peer Community',
-                description: 'Collaborate (FR-09)',
+                description: 'Collaborate & share study decks',
+                badgeText: 'Social',
                 icon: Icons.people_alt_rounded,
                 color: const Color(0xFF2563EB),
                 bgColor: const Color(0xFFEFF6FF),
@@ -544,8 +741,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               _buildFeatureCard(
-                title: 'Analytics Dashboard',
-                description: 'Study charts (FR-10)',
+                title: 'Study Analytics',
+                description: 'Charts, accuracy & milestones',
+                badgeText: 'Live Stats',
                 icon: Icons.bar_chart_rounded,
                 color: const Color(0xFF0D9488),
                 bgColor: const Color(0xFFCCFBF1),
@@ -555,8 +753,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               _buildFeatureCard(
-                title: 'Focus Timer (25m)',
-                description: 'Pomodoro flow (FR-08)',
+                title: 'Focus Timer',
+                description: '25-min Pomodoro deep work',
+                badgeText: 'Productivity',
                 icon: Icons.timer_rounded,
                 color: const Color(0xFFD97706),
                 bgColor: const Color(0xFFFFFBEB),
@@ -567,33 +766,27 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
-          // Weak Topic Alert (Self-Trained Model Preview - FR-05)
+          // Weak Topic Diagnostic Alert Card
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF0F172A).withValues(alpha: 0.04),
-                  blurRadius: 14,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              border: Border.all(color: const Color(0xFFFECACA)),
+              boxShadow: AppColors.cardShadow,
             ),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFEF2F2),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Icon(
-                    Icons.trending_down_rounded,
+                    Icons.warning_amber_rounded,
                     color: Color(0xFFEF4444),
                     size: 24,
                   ),
@@ -603,47 +796,75 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Target Revision Needed',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
-                        ),
+                      Row(
+                        children: [
+                          const Text(
+                            'Targeted Revision Needed',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF2F2),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              'ML Flag',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFEF4444),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        weakTopics.isNotEmpty
-                            ? '${weakTopics.first.subject}: ${weakTopics.first.topic} (${(weakTopics.first.accuracy * 100).toStringAsFixed(0)}% acc)'
+                        primaryWeak != null
+                            ? '${primaryWeak.subject}: ${primaryWeak.topic} (${(primaryWeak.accuracy * 100).toStringAsFixed(0)}% acc)'
                             : 'Physics: Rotational Motion (Accuracy: 42%)',
                         style: const TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF64748B),
+                          color: AppColors.textSecondary,
                         ),
                       ),
                     ],
                   ),
                 ),
                 ElevatedButton(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AdaptiveLearningScreen()),
-                  ),
+                  onPressed: () {
+                    final topicToPractice = primaryWeak?.topic ?? 'Rotational & Circular Motion';
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => QuizScreen(initialTopic: topicToPractice),
+                      ),
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFEF2F2),
-                    foregroundColor: const Color(0xFFEF4444),
+                    backgroundColor: const Color(0xFFEF4444),
+                    foregroundColor: Colors.white,
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: const Text('Review', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  child: const Text(
+                    'Practice',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
         ],
       ),
     );
@@ -653,6 +874,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildFeatureCard({
     required String title,
     required String description,
+    required String badgeText,
     required IconData icon,
     required Color color,
     required Color bgColor,
@@ -660,32 +882,46 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(18),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF0F172A).withValues(alpha: 0.04),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.border),
+          boxShadow: AppColors.cardShadow,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: color, size: 22),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: color, size: 20),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceElevated,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    badgeText,
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ),
+              ],
             ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -693,18 +929,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 13.5,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF0F172A),
+                    color: AppColors.textPrimary,
+                    letterSpacing: -0.2,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
                 Text(
                   description,
                   style: const TextStyle(
                     fontSize: 11,
-                    color: Color(0xFF64748B),
+                    color: AppColors.textSecondary,
+                    height: 1.25,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -717,25 +959,32 @@ class _HomeScreenState extends State<HomeScreen> {
   // --- 2. STUDY TOOLS HUB TAB (Flashcards, Planner, Timer) ---
   Widget _buildStudyToolsHub() {
     return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
             'Smart Study Tools',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+              letterSpacing: -0.4,
+            ),
           ),
           const SizedBox(height: 4),
           const Text(
             'Science-backed active recall, scheduling, and deep work intervals',
-            style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 20),
 
           // Tool 1: Spaced Repetition Flashcards
           _buildToolBannerCard(
             title: 'Active Recall Flashcards',
-            subtitle: 'SuperMemo SM-2 Spaced Repetition algorithm (FR-06)',
+            subtitle: 'SuperMemo SM-2 spaced repetition memory intervals',
+            metaBadge: '${_flashcardService.cards.length} Cards in Deck',
             icon: Icons.style_rounded,
             gradient: const [Color(0xFF4F46E5), Color(0xFF7C3AED)],
             buttonText: 'Open Flashcards Deck',
@@ -749,7 +998,8 @@ class _HomeScreenState extends State<HomeScreen> {
           // Tool 2: Smart Study Planner
           _buildToolBannerCard(
             title: 'Smart Study Planner',
-            subtitle: 'Automated timetable & exam milestone checklist (FR-07)',
+            subtitle: 'Automated exam timetable & syllabus milestone checklist',
+            metaBadge: '${_plannerService.activeMilestones.length} Active Milestones',
             icon: Icons.calendar_month_rounded,
             gradient: const [Color(0xFF059669), Color(0xFF10B981)],
             buttonText: 'View Study Schedule',
@@ -763,7 +1013,8 @@ class _HomeScreenState extends State<HomeScreen> {
           // Tool 3: Pomodoro Focus Timer
           _buildToolBannerCard(
             title: 'Pomodoro Focus Timer',
-            subtitle: '25/5 interval timer with productivity streaks (FR-08)',
+            subtitle: '25/5 interval timer with productivity streaks',
+            metaBadge: '${_plannerService.totalFocusMinutesLogged} Mins Logged Today',
             icon: Icons.timer_rounded,
             gradient: const [Color(0xFFD97706), Color(0xFFF59E0B)],
             buttonText: 'Launch Focus Timer',
@@ -780,6 +1031,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildToolBannerCard({
     required String title,
     required String subtitle,
+    required String metaBadge,
     required IconData icon,
     required List<Color> gradient,
     required String buttonText,
@@ -790,14 +1042,8 @@ class _HomeScreenState extends State<HomeScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppColors.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -809,22 +1055,55 @@ class _HomeScreenState extends State<HomeScreen> {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(colors: gradient),
                   borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: gradient.first.withValues(alpha: 0.28),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                child: Icon(icon, color: Colors.white, size: 28),
+                child: Icon(icon, color: Colors.white, size: 26),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 3),
                     Text(
                       subtitle,
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(height: 5),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                      decoration: BoxDecoration(
+                        color: gradient.first.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        metaBadge,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: gradient.first,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -837,10 +1116,11 @@ class _HomeScreenState extends State<HomeScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: gradient.first,
               foregroundColor: Colors.white,
-              minimumSize: const Size.fromHeight(42),
+              minimumSize: const Size.fromHeight(44),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
             ),
-            child: Text(buttonText, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            child: Text(buttonText),
           ),
         ],
       ),
@@ -859,24 +1139,37 @@ class _HomeScreenState extends State<HomeScreen> {
           Center(
             child: Stack(
               children: [
-                CircleAvatar(
-                  radius: 46,
-                  backgroundColor: const Color(0xFF4F46E5),
-                  child: Text(
-                    displayName.isNotEmpty ? displayName[0].toUpperCase() : 'S',
-                    style: const TextStyle(fontSize: 36, color: Colors.white, fontWeight: FontWeight.bold),
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: AppColors.primaryGradient,
+                    boxShadow: AppColors.primaryGlow(AppColors.primary),
+                  ),
+                  child: CircleAvatar(
+                    radius: 46,
+                    backgroundColor: Colors.white,
+                    child: Text(
+                      displayName.isNotEmpty ? displayName[0].toUpperCase() : 'S',
+                      style: const TextStyle(
+                        fontSize: 36,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ),
                 ),
                 Positioned(
-                  bottom: 0,
-                  right: 0,
+                  bottom: 4,
+                  right: 4,
                   child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF10B981),
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      color: AppColors.success,
                       shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
                     ),
-                    child: const Icon(Icons.check, color: Colors.white, size: 14),
+                    child: const Icon(Icons.check, color: Colors.white, size: 13),
                   ),
                 ),
               ],
@@ -885,92 +1178,129 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 14),
           Text(
             displayName,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+              letterSpacing: -0.4,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             email,
-            style: const TextStyle(fontSize: 13.5, color: Color(0xFF64748B)),
+            style: const TextStyle(fontSize: 13.5, color: AppColors.textSecondary),
           ),
-          const SizedBox(height: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEEF2FF),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              profile.academicLevelString,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF4F46E5)),
-            ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primarySoft,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.primaryBorder),
+                ),
+                child: Text(
+                  profile.academicLevelString,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: profile.isAdmin ? const Color(0xFFFEF2F2) : AppColors.successSoft,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: profile.isAdmin ? const Color(0xFFFECACA) : AppColors.successBorder,
+                  ),
+                ),
+                child: Text(
+                  profile.role.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: profile.isAdmin ? AppColors.error : AppColors.successDark,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 22),
 
-          // User Stats Card
+          // User Stats Card (4 KPIs)
           Container(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF0F172A).withValues(alpha: 0.04),
-                  blurRadius: 14,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              border: Border.all(color: AppColors.border),
+              boxShadow: AppColors.cardShadow,
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _StatItem(
-                  value: '${profile.currentStreak}',
-                  label: 'Day Streak',
+                  value: '${profile.currentStreak}d',
+                  label: 'Streak',
                   icon: Icons.local_fire_department_rounded,
-                  color: Colors.orange,
+                  color: AppColors.streakOrange,
                 ),
                 const _StatItem(
                   value: '12',
-                  label: 'Quizzes Taken',
+                  label: 'Quizzes',
                   icon: Icons.quiz_rounded,
-                  color: Color(0xFF10B981),
+                  color: AppColors.success,
                 ),
                 _StatItem(
                   value: '${_quotaService.remainingAiRequests}',
                   label: 'AI Credits',
                   icon: Icons.bolt_rounded,
-                  color: Colors.indigo,
+                  color: AppColors.primary,
+                ),
+                _StatItem(
+                  value: '${_flashcardService.cards.length}',
+                  label: 'Flashcards',
+                  icon: Icons.style_rounded,
+                  color: const Color(0xFF06B6D4),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 22),
 
           // Action menu items
           _buildMenuTile(
             icon: Icons.edit_note_rounded,
-            title: 'Edit Academic Profile (School / University)',
+            title: 'Academic Profile Setup',
             subtitle: profile.academicLevelString,
-            color: const Color(0xFF4F46E5),
+            color: AppColors.primary,
             onTap: _showEditProfileDialog,
           ),
           _buildMenuTile(
             icon: Icons.language_rounded,
-            title: 'Language Mode',
+            title: 'Language Preference',
             subtitle: 'Current: ${profile.language} (English & Urdu Support)',
-            color: const Color(0xFF059669),
+            color: AppColors.success,
             onTap: () {
               _userService.toggleLanguage();
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Language switched to ${_userService.profile.language}')),
+                SnackBar(
+                  content: Text('Language switched to ${_userService.profile.language}'),
+                  backgroundColor: AppColors.primary,
+                ),
               );
             },
           ),
           _buildMenuTile(
             icon: Icons.history_rounded,
-            title: 'Academic History & Export',
-            subtitle: 'Past quizzes, notes summaries & PDF export (FR-12 & FR-13)',
+            title: 'Academic History & Study Notes Export',
+            subtitle: 'Past mock quizzes, notes summaries & PDF export',
             color: const Color(0xFF7C3AED),
             onTap: () => Navigator.push(
               context,
@@ -980,7 +1310,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _buildMenuTile(
             icon: Icons.military_tech_rounded,
             title: 'Achievements & Badges',
-            subtitle: '${profile.earnedBadges.length} Badges unlocked (FR-15)',
+            subtitle: '${profile.earnedBadges.length} Badges unlocked • View rewards',
             color: const Color(0xFFD97706),
             onTap: () => Navigator.push(
               context,
@@ -990,7 +1320,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _buildMenuTile(
             icon: Icons.admin_panel_settings_rounded,
             title: 'Administrator Moderation Panel',
-            subtitle: 'Role: ${profile.role.toUpperCase()} (FR-11)',
+            subtitle: 'System moderation & flags • Role: ${profile.role.toUpperCase()}',
             color: const Color(0xFFDC2626),
             onTap: () => Navigator.push(
               context,
@@ -1036,70 +1366,104 @@ class _HomeScreenState extends State<HomeScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppColors.cardShadow,
       ),
       child: ListTile(
         onTap: onTap,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         leading: Container(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(9),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, color: color, size: 20),
+          child: Icon(icon, color: color, size: 22),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
-        subtitle: Text(subtitle, style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
-        trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8)),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: AppColors.textPrimary),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+        ),
+        trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted, size: 20),
       ),
     );
   }
 
   // --- MODERN FLOATING BOTTOM NAVIGATION BAR ---
   Widget _buildModernBottomNav() {
+    final navItems = [
+      (Icons.dashboard_outlined, Icons.dashboard_rounded, 'Home'),
+      (Icons.auto_awesome_outlined, Icons.auto_awesome_rounded, 'AI Tutor'),
+      (Icons.quiz_outlined, Icons.quiz_rounded, 'Quizzes'),
+      (Icons.timer_outlined, Icons.timer_rounded, 'Tools'),
+      (Icons.person_outline_rounded, Icons.person_rounded, 'Profile'),
+    ];
+
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        selectedItemColor: const Color(0xFF4F46E5),
-        unselectedItemColor: const Color(0xFF94A3B8),
-        selectedFontSize: 11,
-        unselectedFontSize: 11,
-        elevation: 0,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard_rounded),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.auto_awesome_rounded),
-            label: 'AI Tutor',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.quiz_rounded),
-            label: 'Quizzes',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.timer_rounded),
-            label: 'Tools',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_rounded),
-            label: 'Profile',
-          ),
-        ],
+      padding: const EdgeInsets.only(left: 14, right: 14, bottom: 12, top: 2),
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0F172A).withValues(alpha: 0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: List.generate(navItems.length, (index) {
+            final isSelected = _currentIndex == index;
+            final item = navItems[index];
+            return InkWell(
+              onTap: () => setState(() => _currentIndex = index),
+              borderRadius: BorderRadius.circular(18),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                padding: EdgeInsets.symmetric(
+                  horizontal: isSelected ? 12 : 10,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: isSelected ? AppColors.primarySoft : Colors.transparent,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isSelected ? item.$2 : item.$1,
+                      color: isSelected ? AppColors.primary : AppColors.textMuted,
+                      size: 21,
+                    ),
+                    if (isSelected) ...[
+                      const SizedBox(width: 5),
+                      Text(
+                        item.$3,
+                        style: const TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }),
+        ),
       ),
     );
   }
@@ -1122,24 +1486,33 @@ class _StatItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Icon(icon, color: color, size: 24),
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
         const SizedBox(height: 6),
         Text(
           value,
           style: const TextStyle(
-            fontSize: 18,
+            fontSize: 16,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF0F172A),
+            color: AppColors.textPrimary,
           ),
         ),
         Text(
           label,
           style: const TextStyle(
             fontSize: 11,
-            color: Color(0xFF64748B),
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
     );
   }
 }
+

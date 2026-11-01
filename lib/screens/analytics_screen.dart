@@ -39,7 +39,7 @@ class AnalyticsScreen extends StatelessWidget {
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
             ),
             Text(
-              'Study hours, accuracy trends & syllabus progress (FR-10)',
+              'Study hours, accuracy trends & syllabus mastery progress',
               style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
             ),
           ],
