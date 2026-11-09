@@ -3,6 +3,7 @@ import '../models/quiz_model.dart';
 import '../services/quiz_service.dart';
 import '../services/user_service.dart';
 import '../services/adaptive_service.dart';
+import '../utils/app_colors.dart';
 
 class QuizScreen extends StatefulWidget {
   final String? initialTopic;
@@ -324,6 +325,7 @@ class _QuizScreenState extends State<QuizScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return PopScope(
       canPop: !_isQuizActive,
       onPopInvokedWithResult: (didPop, _) {
@@ -332,9 +334,9 @@ class _QuizScreenState extends State<QuizScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
+        backgroundColor: isDark ? AppColors.darkBackground : const Color(0xFFF8FAFC),
         appBar: AppBar(
-          backgroundColor: Colors.white,
+          backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
           elevation: 0,
           leading: _isQuizActive
               ? IconButton(
@@ -344,7 +346,11 @@ class _QuizScreenState extends State<QuizScreen> {
               : null,
           title: Text(
             _isQuizActive ? 'Exam in Progress' : 'AI Quiz & Assessment Generator',
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+            ),
           ),
           actions: [
             if (_isQuizActive)
@@ -391,6 +397,7 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   Widget _buildActiveQuizBody() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final q = _currentQuestions[_currentIndex];
     final total = _currentQuestions.length;
     final progress = (_currentIndex + 1) / total;
@@ -400,7 +407,7 @@ class _QuizScreenState extends State<QuizScreen> {
         // Top Progress Bar (FR-04)
         LinearProgressIndicator(
           value: progress,
-          backgroundColor: const Color(0xFFE2E8F0),
+          backgroundColor: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0),
           color: const Color(0xFF4F46E5),
           minHeight: 5,
         ),
@@ -411,12 +418,12 @@ class _QuizScreenState extends State<QuizScreen> {
             children: [
               Text(
                 'Question ${_currentIndex + 1} of $total',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF64748B)),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B)),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEEF2FF),
+                  color: isDark ? const Color(0xFF312E81) : const Color(0xFFEEF2FF),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -438,12 +445,12 @@ class _QuizScreenState extends State<QuizScreen> {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: isDark ? AppColors.darkSurface : Colors.white,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    border: Border.all(color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0)),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF0F172A).withValues(alpha: 0.03),
+                        color: const Color(0xFF0F172A).withValues(alpha: isDark ? 0.3 : 0.03),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -451,7 +458,12 @@ class _QuizScreenState extends State<QuizScreen> {
                   ),
                   child: Text(
                     q.question,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF0F172A), height: 1.4),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                      height: 1.4,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -466,11 +478,11 @@ class _QuizScreenState extends State<QuizScreen> {
                     final isCorrect = opt.trim().toLowerCase() == q.correctAnswer.trim().toLowerCase() ||
                         opt.startsWith(q.correctAnswer.split(')').first);
 
-                    Color bgColor = Colors.white;
-                    Color borderColor = const Color(0xFFE2E8F0);
-                    Color textColor = const Color(0xFF1E293B);
-                    Color pillBg = const Color(0xFFF1F5F9);
-                    Color pillText = const Color(0xFF64748B);
+                    Color bgColor = isDark ? AppColors.darkSurface : Colors.white;
+                    Color borderColor = isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0);
+                    Color textColor = isDark ? AppColors.darkTextPrimary : const Color(0xFF1E293B);
+                    Color pillBg = isDark ? AppColors.darkSurfaceElevated : const Color(0xFFF1F5F9);
+                    Color pillText = isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B);
 
                     if (_isAnswerSubmitted) {
                       if (isCorrect) {
@@ -653,6 +665,7 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   Widget _buildQuizSetupBody() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -694,17 +707,25 @@ class _QuizScreenState extends State<QuizScreen> {
           const SizedBox(height: 24),
 
           // Config form
-          const Text('Subject & Topic', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
+          Text(
+            'Subject & Topic',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+            ),
+          ),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
+            dropdownColor: isDark ? AppColors.darkSurface : Colors.white,
             initialValue: _selectedSubject,
             decoration: InputDecoration(
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: isDark ? AppColors.darkSurface : Colors.white,
             ),
             items: ['Physics', 'Chemistry', 'Computer Science', 'Biology', 'Mathematics']
-                .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                .map((s) => DropdownMenuItem(value: s, child: Text(s, style: TextStyle(color: isDark ? AppColors.darkTextPrimary : null))))
                 .toList(),
             onChanged: (val) {
               if (val != null) setState(() => _selectedSubject = val);
@@ -714,17 +735,25 @@ class _QuizScreenState extends State<QuizScreen> {
 
           TextField(
             controller: _topicController,
+            style: TextStyle(color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A)),
             decoration: InputDecoration(
               labelText: 'Topic / Chapter Name',
               hintText: 'e.g. Circular Motion, Organic Chemistry, Arrays',
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: isDark ? AppColors.darkSurface : Colors.white,
             ),
           ),
           const SizedBox(height: 18),
 
-          const Text('Question Format', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
+          Text(
+            'Question Format',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+            ),
+          ),
           const SizedBox(height: 8),
           Row(
             children: [

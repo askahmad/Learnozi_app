@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../services/ai_tutor_service.dart';
 import '../services/user_service.dart';
 import '../services/quota_service.dart';
+import '../utils/app_colors.dart';
 
 class AiTutorScreen extends StatefulWidget {
   const AiTutorScreen({super.key});
@@ -239,10 +240,11 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? AppColors.darkBackground : const Color(0xFFF8FAFC),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         titleSpacing: 16,
@@ -259,16 +261,23 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
               child: const Icon(Icons.auto_awesome, color: Colors.white, size: 18),
             ),
             const SizedBox(width: 10),
-            const Column(
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'AI Study Tutor',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                  ),
                 ),
                 Text(
                   'Syllabus & Exam Assistant',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                  ),
                 ),
               ],
             ),
@@ -286,9 +295,9 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               margin: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFFEEF2FF),
+                color: isDark ? AppColors.darkSurfaceElevated : const Color(0xFFEEF2FF),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFC7D2FE)),
+                border: Border.all(color: isDark ? AppColors.darkBorder : const Color(0xFFC7D2FE)),
               ),
               child: Row(
                 children: [
@@ -321,9 +330,9 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
           // Sub-header Bar: Credits remaining & Level selector
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : Colors.white,
+              border: Border(bottom: BorderSide(color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0))),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -334,21 +343,26 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
                     const SizedBox(width: 4),
                     Text(
                       'Credits: ${_quotaService.remainingAiRequests}/15 Free',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF475569),
+                        color: isDark ? AppColors.darkTextSecondary : const Color(0xFF475569),
                       ),
                     ),
                   ],
                 ),
                 DropdownButton<String>(
+                  dropdownColor: isDark ? AppColors.darkSurface : Colors.white,
                   value: _availableLevels.contains(_selectedLevel)
                       ? _selectedLevel
                       : _availableLevels.first,
                   underline: const SizedBox(),
                   icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF4F46E5), size: 18),
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF4F46E5)),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? AppColors.primaryLight : const Color(0xFF4F46E5),
+                  ),
                   items: _availableLevels.map((lvl) {
                     return DropdownMenuItem<String>(
                       value: lvl,
@@ -445,9 +459,9 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
           // Bottom Input Bar (Text + Voice + Camera)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : Colors.white,
+              border: Border(top: BorderSide(color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0))),
             ),
             child: Row(
               children: [
@@ -485,26 +499,26 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
                     maxLines: 4,
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) => _sendMessage(),
-                    style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
+                    style: TextStyle(fontSize: 14, color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A)),
                     decoration: InputDecoration(
                       hintText: _selectedLanguage == 'Urdu'
                           ? 'اردو یا انگلش میں سوال پوچھیں...'
                           : 'Ask any syllabus question...',
-                      hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                      hintStyle: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextMuted : const Color(0xFF94A3B8)),
                       filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
+                      fillColor: isDark ? AppColors.darkSurfaceElevated : const Color(0xFFF8FAFC),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(20),
-                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                        borderSide: BorderSide(color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0)),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(20),
-                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                        borderSide: BorderSide(color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0)),
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
-                        borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
+                      focusedBorder: const OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(20)),
+                        borderSide: BorderSide(color: Color(0xFF4F46E5), width: 1.5),
                       ),
                     ),
                   ),
@@ -541,6 +555,7 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
   }
 
   Widget _buildEmptyState() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -548,20 +563,20 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFFEEF2FF),
+              color: isDark ? const Color(0xFF312E81) : const Color(0xFFEEF2FF),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.auto_stories_rounded, size: 40, color: Color(0xFF4F46E5)),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Ask Any Study Topic',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A)),
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Physics, Chemistry, Biology, Math, or Urdu',
-            style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+            style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B)),
           ),
         ],
       ),
@@ -609,6 +624,7 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
     }
 
     // AI Message Card
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -618,7 +634,7 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: const Color(0xFFEEF2FF),
+              color: isDark ? const Color(0xFF312E81) : const Color(0xFFEEF2FF),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(Icons.auto_awesome, color: Color(0xFF4F46E5), size: 16),
@@ -628,17 +644,17 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: isDark ? AppColors.darkSurface : Colors.white,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(4),
                   topRight: Radius.circular(18),
                   bottomLeft: Radius.circular(18),
                   bottomRight: Radius.circular(18),
                 ),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                border: Border.all(color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0)),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+                    color: const Color(0xFF0F172A).withValues(alpha: isDark ? 0.3 : 0.04),
                     blurRadius: 10,
                     offset: const Offset(0, 3),
                   ),
@@ -650,14 +666,14 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
                   // Response text
                   SelectableText(
                     msg.text,
-                    style: const TextStyle(
-                      color: Color(0xFF0F172A),
+                    style: TextStyle(
+                      color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
                       fontSize: 14,
                       height: 1.5,
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Divider(color: Color(0xFFF1F5F9), height: 1),
+                  Divider(color: isDark ? AppColors.darkBorder : const Color(0xFFF1F5F9), height: 1),
                   const SizedBox(height: 8),
 
                   // Actions & Feedback Row (Thumbs up/down & Copy - FR-16)

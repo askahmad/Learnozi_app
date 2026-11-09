@@ -69,6 +69,14 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) setState(() {});
   }
 
+  bool get _isDark => _themeService.isDarkMode;
+  Color get _bg => _isDark ? AppColors.darkBackground : AppColors.background;
+  Color get _cardBg => _isDark ? AppColors.darkSurface : Colors.white;
+  Color get _cardBorder => _isDark ? AppColors.darkBorder : AppColors.border;
+  Color get _textPrimary => _isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+  Color get _textSecondary => _isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+  Color get _surfaceElevated => _isDark ? AppColors.darkSurfaceElevated : AppColors.surfaceElevated;
+
   void _confirmLogout() {
     showDialog(
       context: context,
@@ -258,30 +266,35 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = _authService.currentUser;
-    final profile = _userService.profile;
-    final displayName = profile.name.isNotEmpty
-        ? profile.name
-        : (user?.displayName ?? 'Student');
-    final email = user?.email ?? profile.email;
+    return ListenableBuilder(
+      listenable: _themeService,
+      builder: (context, _) {
+        final user = _authService.currentUser;
+        final profile = _userService.profile;
+        final displayName = profile.name.isNotEmpty
+            ? profile.name
+            : (user?.displayName ?? 'Student');
+        final email = user?.email ?? profile.email;
 
-    final List<Widget> pages = [
-      _buildDashboardView(displayName),
-      const AiTutorScreen(),
-      const QuizScreen(),
-      _buildStudyToolsHub(),
-      _buildProfileTab(displayName, email),
-    ];
+        final List<Widget> pages = [
+          _buildDashboardView(displayName),
+          const AiTutorScreen(),
+          const QuizScreen(),
+          _buildStudyToolsHub(),
+          _buildProfileTab(displayName, email),
+        ];
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: SafeArea(
-        child: IndexedStack(
-          index: _currentIndex,
-          children: pages,
-        ),
-      ),
-      bottomNavigationBar: _buildModernBottomNav(),
+        return Scaffold(
+          backgroundColor: _bg,
+          body: SafeArea(
+            child: IndexedStack(
+              index: _currentIndex,
+              children: pages,
+            ),
+          ),
+          bottomNavigationBar: _buildModernBottomNav(),
+        );
+      },
     );
   }
 
@@ -346,18 +359,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Text(
                         '${_getGreeting()},',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w500,
-                          color: AppColors.textSecondary,
+                          color: _textSecondary,
                         ),
                       ),
                       Text(
                         displayName,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 19,
                           fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
+                          color: _textPrimary,
                           letterSpacing: -0.4,
                         ),
                       ),
@@ -365,14 +378,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                         decoration: BoxDecoration(
-                          color: AppColors.surfaceElevated,
+                          color: _surfaceElevated,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           profile.academicLevelString,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 10.5,
-                            color: AppColors.textSecondary,
+                            color: _textSecondary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -609,9 +622,9 @@ class _HomeScreenState extends State<HomeScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: _cardBg,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: _cardBorder),
               boxShadow: AppColors.cardShadow,
             ),
             child: Row(
@@ -619,7 +632,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.primarySoft,
+                    color: _isDark ? AppColors.primaryDark.withValues(alpha: 0.4) : AppColors.primarySoft,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.track_changes_rounded, color: AppColors.primary, size: 22),
@@ -632,9 +645,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
+                          Text(
                             'Today\'s Study Target',
-                            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: _textPrimary),
                           ),
                           Text(
                             '${_plannerService.totalFocusMinutesLogged} / 45m',
@@ -648,7 +661,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: LinearProgressIndicator(
                           value: (_plannerService.totalFocusMinutesLogged / 45).clamp(0.0, 1.0),
                           minHeight: 6,
-                          backgroundColor: AppColors.surfaceElevated,
+                          backgroundColor: _surfaceElevated,
                           valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
                         ),
                       ),
@@ -665,7 +678,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: AppColors.primarySoft,
+                      color: _isDark ? AppColors.primaryDark.withValues(alpha: 0.4) : AppColors.primarySoft,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Row(
@@ -690,7 +703,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
@@ -698,13 +711,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: TextStyle(
                       fontSize: 16.5,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
+                      color: _textPrimary,
                       letterSpacing: -0.3,
                     ),
                   ),
                   Text(
                     'Personalized curriculum & active learning tools',
-                    style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                    style: TextStyle(fontSize: 11.5, color: _textSecondary),
                   ),
                 ],
               ),
@@ -814,9 +827,9 @@ class _HomeScreenState extends State<HomeScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: _cardBg,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFFECACA)),
+              border: Border.all(color: _isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFECACA)),
               boxShadow: AppColors.cardShadow,
             ),
             child: Row(
@@ -824,7 +837,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFEF2F2),
+                    color: _isDark ? const Color(0xFF450A0A) : const Color(0xFFFEF2F2),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Icon(
@@ -840,19 +853,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Row(
                         children: [
-                          const Text(
+                          Text(
                             'Targeted Revision Needed',
                             style: TextStyle(
                               fontSize: 13.5,
                               fontWeight: FontWeight.w800,
-                              color: AppColors.textPrimary,
+                              color: _textPrimary,
                             ),
                           ),
                           const SizedBox(width: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFEF2F2),
+                              color: _isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFEF2F2),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Text(
@@ -871,9 +884,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         primaryWeak != null
                             ? '${primaryWeak.subject}: ${primaryWeak.topic} (${(primaryWeak.accuracy * 100).toStringAsFixed(0)}% acc)'
                             : 'Physics: Rotational Motion (Accuracy: 42%)',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.textSecondary,
+                          color: _textSecondary,
                         ),
                       ),
                     ],
@@ -912,7 +925,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
@@ -920,13 +933,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: TextStyle(
                       fontSize: 16.5,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
+                      color: _textPrimary,
                       letterSpacing: -0.3,
                     ),
                   ),
                   Text(
                     'Saved notes & AI summaries in real-time',
-                    style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                    style: TextStyle(fontSize: 11.5, color: _textSecondary),
                   ),
                 ],
               ),
@@ -957,9 +970,9 @@ class _HomeScreenState extends State<HomeScreen> {
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: _cardBg,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: _cardBorder),
               ),
               child: Row(
                 children: [
@@ -969,13 +982,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'No saved notes yet',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: _textPrimary),
                         ),
                         Text(
                           'Type or paste your notes to generate AI summaries (FR-04)',
-                          style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+                          style: TextStyle(fontSize: 11.5, color: _textSecondary),
                         ),
                       ],
                     ),
@@ -1000,9 +1013,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: _cardBg,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: _cardBorder),
                   boxShadow: AppColors.cardShadow,
                 ),
                 child: Column(
@@ -1013,7 +1026,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF3E8FF),
+                            color: _isDark ? const Color(0xFF3B0764) : const Color(0xFFF3E8FF),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(Icons.description_rounded, color: Color(0xFF7C3AED), size: 18),
@@ -1025,17 +1038,17 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               Text(
                                 d.name,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.w800,
                                   fontSize: 13.5,
-                                  color: AppColors.textPrimary,
+                                  color: _textPrimary,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               Text(
                                 '${d.totalCharacters} chars • ${(d.byteSize / 1024).toStringAsFixed(1)} KB',
-                                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                style: TextStyle(fontSize: 11, color: _textSecondary),
                               ),
                             ],
                           ),
@@ -1045,7 +1058,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 8),
                     Text(
                       d.summary,
-                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.3),
+                      style: TextStyle(fontSize: 12, color: _textSecondary, height: 1.3),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1112,9 +1125,9 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: _cardBg,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: _cardBorder),
           boxShadow: AppColors.cardShadow,
         ),
         child: Column(
@@ -1127,7 +1140,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(9),
                   decoration: BoxDecoration(
-                    color: bgColor,
+                    color: _isDark ? color.withValues(alpha: 0.18) : bgColor,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(icon, color: color, size: 20),
@@ -1135,7 +1148,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceElevated,
+                    color: _surfaceElevated,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -1143,7 +1156,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: TextStyle(
                       fontSize: 9.5,
                       fontWeight: FontWeight.w700,
-                      color: Colors.grey.shade700,
+                      color: _textSecondary,
                     ),
                   ),
                 ),
@@ -1154,10 +1167,10 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary,
+                    color: _textPrimary,
                     letterSpacing: -0.2,
                   ),
                   maxLines: 1,
@@ -1166,9 +1179,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 2),
                 Text(
                   description,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
-                    color: AppColors.textSecondary,
+                    color: _textSecondary,
                     height: 1.25,
                   ),
                   maxLines: 2,
@@ -1190,19 +1203,19 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
+          Text(
             'Smart Study Tools',
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
+              color: _textPrimary,
               letterSpacing: -0.4,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Science-backed active recall, scheduling, and deep work intervals',
-            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            style: TextStyle(fontSize: 13, color: _textSecondary),
           ),
           const SizedBox(height: 20),
 
@@ -1266,9 +1279,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _cardBg,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: _cardBorder),
         boxShadow: AppColors.cardShadow,
       ),
       child: Column(
@@ -1301,10 +1314,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         Expanded(
                           child: Text(
                             title,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 15.5,
                               fontWeight: FontWeight.w800,
-                              color: AppColors.textPrimary,
+                              color: _textPrimary,
                             ),
                           ),
                         ),
@@ -1313,7 +1326,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 3),
                     Text(
                       subtitle,
-                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      style: TextStyle(fontSize: 12, color: _textSecondary),
                     ),
                     const SizedBox(height: 5),
                     Container(
@@ -1404,17 +1417,17 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 14),
           Text(
             displayName,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
+              color: _textPrimary,
               letterSpacing: -0.4,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             email,
-            style: const TextStyle(fontSize: 13.5, color: AppColors.textSecondary),
+            style: TextStyle(fontSize: 13.5, color: _textSecondary),
           ),
           const SizedBox(height: 8),
           Row(
@@ -1423,9 +1436,9 @@ class _HomeScreenState extends State<HomeScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.primarySoft,
+                  color: _isDark ? AppColors.primaryDark.withValues(alpha: 0.4) : AppColors.primarySoft,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.primaryBorder),
+                  border: Border.all(color: _isDark ? AppColors.primary : AppColors.primaryBorder),
                 ),
                 child: Text(
                   profile.academicLevelString,
@@ -1463,9 +1476,9 @@ class _HomeScreenState extends State<HomeScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: _cardBg,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: _cardBorder),
               boxShadow: AppColors.cardShadow,
             ),
             child: Row(
@@ -1583,9 +1596,9 @@ class _HomeScreenState extends State<HomeScreen> {
             onTap: _confirmLogout,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: Color(0xFFFEE2E2)),
+              side: BorderSide(color: _isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFEE2E2)),
             ),
-            tileColor: const Color(0xFFFEF2F2),
+            tileColor: _isDark ? const Color(0xFF450A0A) : const Color(0xFFFEF2F2),
             leading: const Icon(Icons.logout_rounded, color: Color(0xFFEF4444)),
             title: const Text(
               'Sign Out Account',
@@ -1612,9 +1625,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _cardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: _cardBorder),
         boxShadow: AppColors.cardShadow,
       ),
       child: ListTile(
@@ -1630,11 +1643,11 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         title: Text(
           title,
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: AppColors.textPrimary),
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: _textPrimary),
         ),
         subtitle: Text(
           subtitle,
-          style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+          style: TextStyle(fontSize: 11.5, color: _textSecondary),
         ),
         trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted, size: 20),
       ),
@@ -1657,12 +1670,12 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: _cardBg,
           borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: _cardBorder),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF0F172A).withValues(alpha: 0.08),
+              color: const Color(0xFF0F172A).withValues(alpha: _isDark ? 0.35 : 0.08),
               blurRadius: 20,
               offset: const Offset(0, 6),
             ),
@@ -1684,7 +1697,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   vertical: 7,
                 ),
                 decoration: BoxDecoration(
-                  color: isSelected ? AppColors.primarySoft : Colors.transparent,
+                  color: isSelected
+                      ? (_isDark ? AppColors.primary.withValues(alpha: 0.25) : AppColors.primarySoft)
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Row(
@@ -1692,15 +1707,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Icon(
                       isSelected ? item.$2 : item.$1,
-                      color: isSelected ? AppColors.primary : AppColors.textMuted,
+                      color: isSelected
+                          ? (_isDark ? AppColors.primaryLight : AppColors.primary)
+                          : (_isDark ? AppColors.darkTextMuted : AppColors.textMuted),
                       size: 21,
                     ),
                     if (isSelected) ...[
                       const SizedBox(width: 5),
                       Text(
                         item.$3,
-                        style: const TextStyle(
-                          color: AppColors.primary,
+                        style: TextStyle(
+                          color: _isDark ? AppColors.primaryLight : AppColors.primary,
                           fontWeight: FontWeight.w800,
                           fontSize: 11.5,
                         ),
@@ -1732,6 +1749,7 @@ class _StatItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
         Container(
@@ -1745,17 +1763,17 @@ class _StatItem extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w800,
-            color: AppColors.textPrimary,
+            color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
           ),
         ),
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11,
-            color: AppColors.textSecondary,
+            color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
             fontWeight: FontWeight.w500,
           ),
         ),
