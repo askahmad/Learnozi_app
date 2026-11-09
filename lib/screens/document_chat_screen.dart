@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../services/document_service.dart';
 import '../services/quota_service.dart';
 import '../services/user_service.dart';
+import '../services/flashcard_service.dart';
+import 'quiz_screen.dart';
 
 class DocumentChatScreen extends StatefulWidget {
   final String? initialDocId;
@@ -524,6 +526,75 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
                 ],
               ),
             ),
+          ),
+          const SizedBox(height: 14),
+          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => QuizScreen(initialTopic: doc.name),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.quiz_rounded, size: 15),
+                  label: const Text(
+                    'Take Quiz on Note (FR-05)',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF059669),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: () {
+                  final flashService = FlashcardService();
+                  int added = 0;
+                  for (var i = 0; i < doc.keyPoints.length; i++) {
+                    final pt = doc.keyPoints[i];
+                    final parts = pt.split(':');
+                    final front = parts.isNotEmpty ? parts.first.replaceAll('•', '').trim() : 'Concept ${i + 1}';
+                    final back = parts.length > 1 ? parts.sublist(1).join(':').trim() : pt;
+                    flashService.addCard(
+                      category: 'Study Notes',
+                      front: '$front (${doc.name})',
+                      back: back,
+                    );
+                    added++;
+                  }
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Generated $added SM-2 Flashcards from this note!'),
+                      backgroundColor: const Color(0xFF10B981),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.style_rounded, size: 15),
+                label: const Text(
+                  'Make Flashcards',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4F46E5),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ],
           ),
         ],
       ),

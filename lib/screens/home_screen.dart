@@ -7,6 +7,8 @@ import '../services/quota_service.dart';
 import '../services/adaptive_service.dart';
 import '../services/flashcard_service.dart';
 import '../services/study_planner_service.dart';
+import '../services/document_service.dart';
+import '../services/theme_service.dart';
 import '../utils/app_colors.dart';
 import 'ai_tutor_screen.dart';
 import 'document_chat_screen.dart';
@@ -36,6 +38,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final _adaptiveService = AdaptiveService();
   final _plannerService = StudyPlannerService();
   final _flashcardService = FlashcardService();
+  final _docService = DocumentService();
+  final _themeService = ThemeService();
 
   @override
   void initState() {
@@ -45,6 +49,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _adaptiveService.addListener(_onStateChanged);
     _plannerService.addListener(_onStateChanged);
     _flashcardService.addListener(_onStateChanged);
+    _docService.addListener(_onStateChanged);
+    _themeService.addListener(_onStateChanged);
   }
 
   @override
@@ -54,6 +60,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _adaptiveService.removeListener(_onStateChanged);
     _plannerService.removeListener(_onStateChanged);
     _flashcardService.removeListener(_onStateChanged);
+    _docService.removeListener(_onStateChanged);
+    _themeService.removeListener(_onStateChanged);
     super.dispose();
   }
 
@@ -440,6 +448,40 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Dual Theme Switcher Pill (FR-06, FR-07, FR-08)
+                  InkWell(
+                    onTap: () {
+                      _themeService.toggleTheme();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            _themeService.isDarkMode
+                                ? 'Switched to Dark Theme (FR-07)'
+                                : 'Switched to Light Theme (FR-06)',
+                          ),
+                          duration: const Duration(seconds: 1),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: _themeService.isDarkMode ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: _themeService.isDarkMode ? const Color(0xFF475569) : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      child: Icon(
+                        _themeService.isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                        size: 16,
+                        color: _themeService.isDarkMode ? Colors.amber : const Color(0xFF64748B),
+                      ),
                     ),
                   ),
                 ],
@@ -864,6 +906,190 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
+
+          // --- RECENT SAVED NOTES SECTION (FR-01, FR-03, FR-04) ---
+          const SizedBox(height: 22),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Recent Study Notes (FR-01)',
+                    style: TextStyle(
+                      fontSize: 16.5,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  Text(
+                    'Saved notes & AI summaries in real-time',
+                    style: TextStyle(fontSize: 11.5, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+              InkWell(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const DocumentChatScreen()),
+                ),
+                borderRadius: BorderRadius.circular(8),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  child: Row(
+                    children: [
+                      Text(
+                        '+ Add Note',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primary),
+                      ),
+                      Icon(Icons.add_rounded, size: 16, color: AppColors.primary),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          if (_docService.documents.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.note_add_rounded, color: AppColors.primary, size: 28),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'No saved notes yet',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                        ),
+                        Text(
+                          'Type or paste your notes to generate AI summaries (FR-04)',
+                          style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const DocumentChatScreen()),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    child: const Text('Add Note'),
+                  ),
+                ],
+              ),
+            )
+          else
+            ..._docService.documents.take(3).map((d) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border),
+                  boxShadow: AppColors.cardShadow,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF3E8FF),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.description_rounded, color: Color(0xFF7C3AED), size: 18),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                d.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13.5,
+                                  color: AppColors.textPrimary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                '${d.totalCharacters} chars • ${(d.byteSize / 1024).toStringAsFixed(1)} KB',
+                                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      d.summary,
+                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.3),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => QuizScreen(initialTopic: d.name),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.quiz_rounded, size: 13),
+                          label: const Text('Quiz (FR-05)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => DocumentChatScreen(initialDocId: d.id),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.chat_bubble_outline_rounded, size: 13),
+                          label: const Text('Open Note', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }),
           const SizedBox(height: 24),
         ],
       ),
@@ -1293,6 +1519,28 @@ class _HomeScreenState extends State<HomeScreen> {
                 SnackBar(
                   content: Text('Language switched to ${_userService.profile.language}'),
                   backgroundColor: AppColors.primary,
+                ),
+              );
+            },
+          ),
+          _buildMenuTile(
+            icon: _themeService.isDarkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+            title: 'Dual Theme (Light & Dark Mode)',
+            subtitle: _themeService.isDarkMode
+                ? 'Current: Dark Theme (FR-07) • Tap to switch'
+                : 'Current: Light Theme (FR-06) • Tap to switch',
+            color: Colors.amber.shade700,
+            onTap: () {
+              _themeService.toggleTheme();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    _themeService.isDarkMode
+                        ? 'Dark Theme Enabled (FR-07)'
+                        : 'Light Theme Enabled (FR-06)',
+                  ),
+                  duration: const Duration(seconds: 1),
+                  behavior: SnackBarBehavior.floating,
                 ),
               );
             },
