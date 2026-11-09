@@ -4,6 +4,7 @@ class UserProfile {
   final String id;
   String name;
   String email;
+  String phoneNumber;
   EducationType educationType;
   
   // School fields
@@ -26,6 +27,7 @@ class UserProfile {
     required this.id,
     required this.name,
     required this.email,
+    this.phoneNumber = '+923306568143',
     this.educationType = EducationType.school,
     this.schoolGrade = '11th (FSc Part 1)',
     this.schoolCourse = 'Pre-Medical',

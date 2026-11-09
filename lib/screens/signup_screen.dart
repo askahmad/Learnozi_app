@@ -301,7 +301,7 @@ class _SignupScreenState extends State<SignupScreen> {
                             textInputAction: TextInputAction.next,
                             style: const TextStyle(fontSize: 14.5, color: Color(0xFF0F172A)),
                             decoration: _buildInputDecoration(
-                              hint: 'e.g. Sarah Jenkins',
+                              hint: 'e.g. Muhammad Ahmad',
                               icon: Icons.person_outline_rounded,
                             ),
                           ),
@@ -317,7 +317,7 @@ class _SignupScreenState extends State<SignupScreen> {
                             textInputAction: TextInputAction.next,
                             style: const TextStyle(fontSize: 14.5, color: Color(0xFF0F172A)),
                             decoration: _buildInputDecoration(
-                              hint: 'e.g. sarah@study.edu',
+                              hint: 'e.g. ahmad@learnozi.pk',
                               icon: Icons.mail_outline_rounded,
                             ),
                           ),

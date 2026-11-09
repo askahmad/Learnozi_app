@@ -161,7 +161,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       validator: _validateEmail,
                       decoration: InputDecoration(
                         labelText: 'Email Address',
-                        hintText: 'student@learnozi.com',
+                        hintText: 'e.g. ahmad@learnozi.pk',
                         prefixIcon: const Icon(Icons.mail_outline_rounded, size: 20),
                         filled: true,
                         fillColor: const Color(0xFFF8FAFC),
@@ -420,7 +420,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             validator: _validateEmail,
                             style: const TextStyle(fontSize: 14.5, color: Color(0xFF0F172A)),
                             decoration: InputDecoration(
-                              hintText: 'e.g. alex@university.edu',
+                              hintText: 'e.g. ahmad@learnozi.pk',
                               hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13.5),
                               prefixIcon: const Icon(
                                 Icons.mail_outline_rounded,
@@ -483,7 +483,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             validator: _validatePassword,
                             style: const TextStyle(fontSize: 14.5, color: Color(0xFF0F172A)),
                             decoration: InputDecoration(
-                              hintText: 'Enter your password',
+                              hintText: '•••••••• (Enter your password)',
                               hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13.5),
                               prefixIcon: const Icon(
                                 Icons.lock_outline_rounded,
@@ -584,64 +584,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 24),
 
-                          // Divider
-                          Row(
-                            children: [
-                              const Expanded(
-                                child: Divider(color: Color(0xFFE2E8F0), thickness: 1),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                                child: Text(
-                                  'OR CONTINUE WITH',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade400,
-                                    letterSpacing: 0.6,
-                                  ),
-                                ),
-                              ),
-                              const Expanded(
-                                child: Divider(color: Color(0xFFE2E8F0), thickness: 1),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 18),
-
-                          // Social Auth Options
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildSocialButton(
-                                  icon: Icons.g_mobiledata_rounded,
-                                  label: 'Google',
-                                  isGoogle: true,
-                                  onTap: () {
-                                    _showCustomSnackBar(
-                                      message: 'Google Sign-In will be available in next update!',
-                                      isError: false,
-                                    );
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _buildSocialButton(
-                                  icon: Icons.apple_rounded,
-                                  label: 'Apple',
-                                  onTap: () {
-                                    _showCustomSnackBar(
-                                      message: 'Apple ID Sign-In will be available in next update!',
-                                      isError: false,
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 26),
-
                           // Switch to SignUp Link
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -680,45 +622,6 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSocialButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    bool isGoogle = false,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: isGoogle ? 24 : 20,
-              color: isGoogle ? const Color(0xFFEA4335) : const Color(0xFF0F172A),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF334155),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

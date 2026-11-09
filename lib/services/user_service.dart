@@ -10,6 +10,7 @@ class UserService extends ChangeNotifier {
     id: 'user_101',
     name: 'Muhammad Ahmad',
     email: 'ahmad@learnozi.pk',
+    phoneNumber: '+923306568143',
     educationType: EducationType.school,
     schoolGrade: '11th (FSc Part 1)',
     schoolCourse: 'Pre-Medical',
@@ -28,6 +29,7 @@ class UserService extends ChangeNotifier {
 
   void updateProfile({
     String? name,
+    String? phoneNumber,
     EducationType? educationType,
     String? schoolGrade,
     String? schoolCourse,
@@ -38,6 +40,7 @@ class UserService extends ChangeNotifier {
     String? language,
   }) {
     if (name != null) _currentProfile.name = name;
+    if (phoneNumber != null) _currentProfile.phoneNumber = phoneNumber;
     if (educationType != null) _currentProfile.educationType = educationType;
     if (schoolGrade != null) _currentProfile.schoolGrade = schoolGrade;
     if (schoolCourse != null) _currentProfile.schoolCourse = schoolCourse;

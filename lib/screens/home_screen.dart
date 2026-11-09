@@ -123,6 +123,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showEditProfileDialog() {
     final user = _userService.profile;
     final nameController = TextEditingController(text: user.name);
+    final phoneController = TextEditingController(text: user.phoneNumber);
     EducationType eduType = user.educationType;
     String schoolGrade = user.schoolGrade;
     String schoolCourse = user.schoolCourse;
@@ -159,6 +160,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     controller: nameController,
                     decoration: InputDecoration(
                       labelText: 'Full Name',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: phoneController,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                      labelText: 'Phone Number',
+                      hintText: '+92 330 6568143',
+                      prefixIcon: const Icon(Icons.phone_rounded, size: 20),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
@@ -238,6 +250,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     onPressed: () {
                       _userService.updateProfile(
                         name: nameController.text.trim(),
+                        phoneNumber: phoneController.text.trim(),
                         educationType: eduType,
                         schoolGrade: schoolGrade,
                         schoolCourse: schoolCourse,
@@ -1428,6 +1441,18 @@ class _HomeScreenState extends State<HomeScreen> {
           Text(
             email,
             style: TextStyle(fontSize: 13.5, color: _textSecondary),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.phone_rounded, size: 14, color: Color(0xFF10B981)),
+              const SizedBox(width: 4),
+              Text(
+                profile.phoneNumber,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF10B981)),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Row(
