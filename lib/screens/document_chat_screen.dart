@@ -566,7 +566,7 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
                     final parts = pt.split(':');
                     final front = parts.isNotEmpty ? parts.first.replaceAll('•', '').trim() : 'Concept ${i + 1}';
                     final back = parts.length > 1 ? parts.sublist(1).join(':').trim() : pt;
-                    flashService.addCard(
+                    flashService.addFlashcard(
                       category: 'Study Notes',
                       front: '$front (${doc.name})',
                       back: back,

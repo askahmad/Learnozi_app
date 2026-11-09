@@ -79,6 +79,12 @@ class FlashcardService extends ChangeNotifier {
     notifyListeners();
   }
 
+  void addCard({
+    required String front,
+    required String back,
+    required String category,
+  }) => addFlashcard(front: front, back: back, category: category);
+
   void reviewCard(Flashcard card, int rating) {
     card.applySm2Review(rating);
     _totalReviewsCompleted++;

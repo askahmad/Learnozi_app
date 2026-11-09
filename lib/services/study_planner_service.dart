@@ -12,6 +12,9 @@ class StudyPlannerService extends ChangeNotifier {
   final List<StudyPlan> _plans = [];
   List<StudyPlan> get plans => List.unmodifiable(_plans);
 
+  List<StudyTask> get activeMilestones =>
+      _plans.expand((p) => p.tasks).where((t) => !t.isCompleted).toList();
+
   final List<FocusSession> _focusSessions = [];
   List<FocusSession> get focusSessions => List.unmodifiable(_focusSessions);
 
