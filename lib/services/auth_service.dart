@@ -219,10 +219,30 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  // 5. Authentic Sign in / Sign up with Google (Native Play Services + Firebase Auth)
+  // 5. Authentic Sign in / Sign up with Google (Multi-platform: Web + Android/iOS)
   Future<String?> signInWithGoogle() async {
     try {
-      // 1. Trigger Google Play Services native Account Picker
+      // Platform check: Web uses Firebase Auth popup directly (No native plugin needed)
+      if (kIsWeb) {
+        final GoogleAuthProvider googleProvider = GoogleAuthProvider();
+        googleProvider.addScope('email');
+        googleProvider.addScope('profile');
+        final UserCredential userCredential = await _auth.signInWithPopup(googleProvider);
+        final user = userCredential.user;
+
+        if (user != null) {
+          _isDemoActive = false;
+          UserService().updateProfile(
+            name: user.displayName ?? 'Student',
+            email: user.email,
+          );
+          notifyListeners();
+          return null;
+        }
+        return 'Unable to retrieve user credentials from Google.';
+      }
+
+      // Mobile (Android / iOS): Uses native Google Play Services Account Picker
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
         // User cancelled the Google sign-in prompt
@@ -254,6 +274,8 @@ class AuthService extends ChangeNotifier {
       return 'Unable to retrieve user credentials from Google.';
     } on FirebaseAuthException catch (e) {
       switch (e.code) {
+        case 'popup-closed-by-user':
+          return null; // Silent cancel when user closes web popup
         case 'account-exists-with-different-credential':
           return 'An account already exists with a different sign-in method.';
         case 'invalid-credential':
@@ -265,8 +287,14 @@ class AuthService extends ChangeNotifier {
       }
     } catch (e) {
       final err = e.toString();
-      if (err.contains('canceled') || err.contains('cancelled') || err.contains('sign_in_canceled')) {
+      if (err.contains('canceled') ||
+          err.contains('cancelled') ||
+          err.contains('sign_in_canceled') ||
+          err.contains('popup_closed_by_user')) {
         return null;
+      }
+      if (err.contains('MissingPluginException')) {
+        return 'Please restart the app (press Stop in VS Code and run again) so the new Google Sign-In plugin can link.';
       }
       if (err.contains('10') || err.contains('DEVELOPER_ERROR')) {
         return 'Google Sign-In configuration error: Please check Firebase Console SHA-1 fingerprint.';
