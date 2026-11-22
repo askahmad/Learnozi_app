@@ -186,76 +186,6 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
     }
   }
 
-  void _showApiKeyDialog() {
-    final keyController = TextEditingController(text: AiTutorService.apiKey);
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.key_rounded, color: Color(0xFF4F46E5)),
-            SizedBox(width: 10),
-            Text('Gemini Free API Key', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Get your 100% free Gemini API key from Google AI Studio (aistudio.google.com) and paste it below:',
-              style: TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.4),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: keyController,
-              decoration: InputDecoration(
-                hintText: 'Enter your Gemini API key...',
-                hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B))),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                AiTutorService.apiKey = keyController.text.trim();
-              });
-              Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Gemini API key updated successfully!'),
-                  backgroundColor: Color(0xFF10B981),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4F46E5),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            child: const Text('Save Key', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showLimitReachedDialog() {
     showDialog(
       context: context,
@@ -379,18 +309,7 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 6),
-          // API Key Settings Action
-          IconButton(
-            icon: Icon(
-              Icons.vpn_key_rounded,
-              size: 20,
-              color: AiTutorService.apiKey.isEmpty ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
-            ),
-            tooltip: AiTutorService.apiKey.isEmpty ? 'Connect Free Gemini API Key' : 'Gemini AI Key Connected',
-            onPressed: _showApiKeyDialog,
-          ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
         ],
       ),
       body: Column(
@@ -652,24 +571,6 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
             'Computer Science, Math, Physics, Chemistry, Biology',
             style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B)),
           ),
-          if (AiTutorService.apiKey.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 14),
-              child: OutlinedButton.icon(
-                onPressed: _showApiKeyDialog,
-                icon: const Icon(Icons.vpn_key_rounded, size: 16, color: Color(0xFF4F46E5)),
-                label: const Text(
-                  'Connect Free Gemini AI Key',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF4F46E5)),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFFC7D2FE)),
-                  backgroundColor: isDark ? const Color(0xFF1E1B4B) : const Color(0xFFEEF2FF),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                ),
-              ),
-            ),
         ],
       ),
     );
