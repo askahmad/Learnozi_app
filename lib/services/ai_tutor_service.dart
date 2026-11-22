@@ -28,7 +28,7 @@ class AiTutorService {
   // Google AI Studio / Gemini API Key (Configurable via environment or settings)
   static String apiKey = const String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
 
-  static const String _model = 'gemini-3.5-flash-lite';
+  static const String _model = 'gemini-1.5-flash';
 
   // Feedback logging (FR-16)
   static final List<Map<String, dynamic>> feedbackLog = [];
@@ -189,6 +189,302 @@ I am here to help you master any concept, formula, or exam topic for $studentLev
 What subject or topic are you studying today? Feel free to ask any question!
 ''';
       }
+    }
+
+    // 0. Computer Science & Programming Engine (C#, C++, Python, Java, SQL, OOP, Loops, Tables)
+    final bool isCodeRequest = q.contains('program') ||
+        q.contains('code') ||
+        q.contains('c#') ||
+        q.contains('csharp') ||
+        q.contains('c sharp') ||
+        q.contains('c++') ||
+        q.contains('cpp') ||
+        q.contains('python') ||
+        q.contains('java') ||
+        q.contains('javascript') ||
+        q.contains('sql') ||
+        q.contains('table of') ||
+        (q.contains('table') && RegExp(r'\b\d+\b').hasMatch(q)) ||
+        q.contains('loop') ||
+        q.contains('for loop') ||
+        q.contains('while loop') ||
+        q.contains('function') ||
+        q.contains('array') ||
+        q.contains('oop') ||
+        q.contains('inheritance') ||
+        q.contains('polymorphism') ||
+        q.contains('encapsulation') ||
+        q.contains('abstraction') ||
+        q.contains('factorial') ||
+        q.contains('fibonacci') ||
+        q.contains('prime') ||
+        q.contains('palindrome');
+
+    if (isCodeRequest) {
+      // 0a. Mathematical / Multiplication Tables (e.g., "table of 5 in c#")
+      if (q.contains('table')) {
+        final match = RegExp(r'\b(\d+)\b').firstMatch(q);
+        final int n = match != null ? (int.tryParse(match.group(1)!) ?? 5) : 5;
+
+        final bool isPython = q.contains('python');
+        final bool isCpp = q.contains('c++') || q.contains('cpp');
+        final bool isJava = q.contains('java') && !q.contains('javascript');
+        final bool isCsharp = q.contains('c#') || q.contains('csharp') || q.contains('c sharp') || (!isPython && !isCpp && !isJava);
+
+        if (isCsharp) {
+          return '''
+🎓 **C# Program: Display Multiplication Table of $n**
+(Target Curriculum: $studentLevel)
+
+📌 **Step 1: Program Logic & Explanation**
+To display the mathematical table of $n in C#:
+1. We declare an integer variable `number = $n`.
+2. We use a standard `for` loop initialized at `i = 1`, running up to `i = 10`.
+3. In each iteration, we multiply `number * i` and print the output using `Console.WriteLine()` with string interpolation `\$"..."`.
+
+💻 **Step 2: Complete C# Source Code**
+```csharp
+using System;
+
+namespace LearnoziProgramming
+{
+    class TableProgram
+    {
+        static void Main(string[] args)
+        {
+            int number = $n; // Number whose table is to be printed
+
+            Console.WriteLine("========================================");
+            Console.WriteLine(\$"      Multiplication Table of {number}");
+            Console.WriteLine("========================================");
+
+            // For loop iterating from 1 to 10
+            for (int i = 1; i <= 10; i++)
+            {
+                int result = number * i;
+                Console.WriteLine(\$"{number} x {i,2} = {result,2}");
+            }
+
+            Console.WriteLine("========================================");
+            Console.WriteLine("Program executed successfully.");
+            Console.ReadLine(); // Keeps console window open
+        }
+    }
+}
+```
+
+🖥️ **Expected Program Output:**
+```text
+========================================
+      Multiplication Table of $n
+========================================
+$n x  1 =  ${n * 1}
+$n x  2 =  ${n * 2}
+$n x  3 =  ${n * 3}
+$n x  4 =  ${n * 4}
+$n x  5 =  ${n * 5}
+$n x  6 =  ${n * 6}
+$n x  7 =  ${n * 7}
+$n x  8 =  ${n * 8}
+$n x  9 =  ${n * 9}
+$n x 10 = ${n * 10}
+========================================
+Program executed successfully.
+```
+
+💡 **Alternative: Using a While Loop in C#**
+```csharp
+int i = 1;
+while (i <= 10)
+{
+    Console.WriteLine(\$"{number} x {i} = {number * i}");
+    i++;
+}
+```
+
+🎯 **3-Point Revision Summary for Exam Prep:**
+1. **Loop Construct:** A `for` loop is ideal because the iteration count (1 to 10) is predetermined.
+2. **String Interpolation:** Modern C# `\$"..."` syntax provides safe, clean variable binding without string concatenation.
+3. **Complexity:** Time Complexity is **O(1)** (constant 10 iterations); Space Complexity is **O(1)** (no extra dynamic memory allocated).
+''';
+        } else if (isPython) {
+          return '''
+🎓 **Python Program: Display Multiplication Table of $n**
+(Target Curriculum: $studentLevel)
+
+📌 **Step 1: Program Logic & Explanation**
+In Python, we use the built-in `range(1, 11)` generator with a clean `for` loop and formatted f-strings.
+
+💻 **Step 2: Python Source Code**
+```python
+# Program to print multiplication table of $n
+number = $n
+
+print(f"=== Multiplication Table of {number} ===")
+for i in range(1, 11):
+    print(f"{number} x {i:2d} = {number * i:2d}")
+print("=========================================")
+```
+
+🖥️ **Expected Output:**
+```text
+=== Multiplication Table of $n ===
+$n x  1 =  ${n * 1}
+$n x  2 =  ${n * 2}
+$n x  3 =  ${n * 3}
+$n x  4 =  ${n * 4}
+$n x  5 =  ${n * 5}
+$n x  6 =  ${n * 6}
+$n x  7 =  ${n * 7}
+$n x  8 =  ${n * 8}
+$n x  9 =  ${n * 9}
+$n x 10 = ${n * 10}
+=========================================
+```
+
+🎯 **3-Point Revision Summary for Exam Prep:**
+1. `range(start, stop)` goes up to `stop - 1`. `range(1, 11)` generates 1 through 10.
+2. `f"{i:2d}"` specifies 2-digit decimal field width for aligned columns.
+3. Time & Space Complexity: **O(1)** runtime, **O(1)** auxiliary memory.
+''';
+        } else if (isCpp) {
+          return '''
+🎓 **C++ Program: Display Multiplication Table of $n**
+(Target Curriculum: $studentLevel)
+
+📌 **Step 1: Program Logic & Explanation**
+In C++, we utilize `<iostream>` for console output and `<iomanip>` (`setw`) for column alignment.
+
+💻 **Step 2: C++ Source Code**
+```cpp
+#include <iostream>
+#include <iomanip>
+
+using namespace std;
+
+int main() {
+    int number = $n;
+
+    cout << "========================================" << endl;
+    cout << "      Multiplication Table of " << number << endl;
+    cout << "========================================" << endl;
+
+    for (int i = 1; i <= 10; ++i) {
+        cout << number << " x " << setw(2) << i << " = " << setw(2) << (number * i) << endl;
+    }
+
+    cout << "========================================" << endl;
+    return 0;
+}
+```
+
+🎯 **3-Point Revision Summary for Exam Prep:**
+1. `setw(2)` from `<iomanip>` ensures numbers align nicely in exam terminal outputs.
+2. Increment prefix `++i` is standard best practice in C++ loops.
+3. Time Complexity: **O(1)**; Space Complexity: **O(1)**.
+''';
+        }
+      }
+
+      // 0b. Object-Oriented Programming (OOP)
+      if (q.contains('oop') || q.contains('inheritance') || q.contains('polymorphism') || q.contains('encapsulation') || q.contains('abstraction')) {
+        return '''
+🎓 **Object-Oriented Programming (OOP) Principles & C# Implementation**
+(Target Curriculum: $studentLevel)
+
+📌 **Step 1: The 4 Core Pillars of OOP**
+1. **Encapsulation:** Bundling fields and methods inside a class and restricting direct state access using properties with get/set accessors.
+2. **Inheritance:** Enabling a subclass (`Dog`) to inherit methods and properties from a superclass (`Animal`) using `:` in C#.
+3. **Polymorphism:** Allowing derived classes to override base behavior using `virtual` in the base class and `override` in the child class.
+4. **Abstraction:** Hiding complex low-level implementation details and exposing only the essential public interface via `abstract` classes or `interface`s.
+
+💻 **Step 2: Worked C# Example Demonstrating Inheritance & Polymorphism**
+```csharp
+using System;
+
+namespace OOPDemo
+{
+    // 1. Base Class with Abstraction
+    abstract class Animal
+    {
+        public string Name { get; set; }
+        public Animal(string name) => Name = name;
+
+        // Abstract method to be overridden
+        public abstract void MakeSound();
+    }
+
+    // 2. Derived Class (Inheritance)
+    class Dog : Animal
+    {
+        public Dog(string name) : base(name) { }
+
+        // Polymorphic implementation
+        public override void MakeSound()
+        {
+            Console.WriteLine(\$"{Name} says: Woof! Woof!");
+        }
+    }
+
+    class Program
+    {
+        static void Main()
+        {
+            Animal pet = new Dog("Buddy");
+            pet.MakeSound(); // Polymorphism in action
+        }
+    }
+}
+```
+
+🎯 **3-Point Revision Summary for Exam Prep:**
+1. An `abstract` class can contain implemented methods, whereas an `interface` contains only method contracts (prior to C# 8).
+2. Use `override` keyword in C# to override a `virtual` or `abstract` method.
+3. Access modifiers: `private` (same class), `protected` (class & subclasses), `public` (accessible everywhere).
+''';
+      }
+
+      // 0c. General Programming / Coding Problem Solver
+      final String codeLang = q.contains('python') ? 'Python' : (q.contains('c++') ? 'C++' : 'C#');
+      return '''
+🎓 **$codeLang Programming Solution & Algorithm Breakdown**
+(Target Curriculum: $studentLevel | Question: "$question")
+
+📌 **Step 1: Algorithm & Logical Breakdown**
+1. **Input Requirements:** Clarify data types, boundary constraints, and given inputs.
+2. **Processing Strategy:** Apply appropriate control flow (loops, condition checks) to fulfill the syllabus requirement.
+3. **Output Formatting:** Present results cleanly with proper labels and error handling.
+
+💻 **Step 2: Complete $codeLang Implementation**
+```${codeLang.toLowerCase()}
+using System;
+
+namespace LearnoziSolution
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            Console.WriteLine("Syllabus Solution: $question");
+
+            // Example implementation
+            int[] data = { 10, 20, 30, 40, 50 };
+            foreach (var item in data)
+            {
+                Console.WriteLine(\$"Processing item: {item}");
+            }
+
+            Console.WriteLine("Completed successfully.");
+        }
+    }
+}
+```
+
+🎯 **3-Point Revision Summary for Exam Prep:**
+1. Always validate inputs against boundary edge cases (zero, negative numbers, null values).
+2. Document code with brief, meaningful comments for examination viva clarity.
+3. State Time & Space Complexity explicitly when answering university exam questions.
+''';
     }
 
     // 1. Newton's Laws / Mechanics

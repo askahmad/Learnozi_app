@@ -169,6 +169,21 @@ void main() {
         expect(explanation, anyOf(contains('نیوٹن'), contains('قوانین'), contains('حرکت')));
       },
     );
+
+    test('Generates complete runnable C# program for table of 5 query', () async {
+      final tutor = AiTutorService();
+      final explanation = await tutor.askTutor(
+        question: "write a program that display table of 5 in c#",
+        studentLevel: "BS Computer Science (BSCS) - 6th Semester",
+        language: "English",
+      );
+
+      expect(explanation.isNotEmpty, isTrue);
+      expect(explanation, contains('csharp'));
+      expect(explanation, contains('Console.WriteLine'));
+      expect(explanation, contains('5 x'));
+      expect(explanation, contains('for (int i = 1; i <= 10; i++)'));
+    });
   });
 
   group('FR-03: Document Upload & Grounded Chat', () {

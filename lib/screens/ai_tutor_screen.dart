@@ -36,9 +36,10 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
           'دو درجی مساوات حل کرنے کا طریقہ',
         ]
       : [
-          'Explain Newton\'s Third Law with exam example',
-          'Structure of DNA in simple steps',
-          'Difference between Mitosis and Meiosis in Urdu',
+          'Table of 5 in C# program',
+          'Explain Newton\'s Laws with exam example',
+          'OOP Principles with C# Example',
+          'Difference between Mitosis and Meiosis',
           'Solve quadratic equation by factorization',
         ];
 
@@ -381,8 +382,12 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
           const SizedBox(width: 6),
           // API Key Settings Action
           IconButton(
-            icon: const Icon(Icons.vpn_key_outlined, size: 20, color: Color(0xFF64748B)),
-            tooltip: 'Configure Gemini API Key',
+            icon: Icon(
+              Icons.vpn_key_rounded,
+              size: 20,
+              color: AiTutorService.apiKey.isEmpty ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+            ),
+            tooltip: AiTutorService.apiKey.isEmpty ? 'Connect Free Gemini API Key' : 'Gemini AI Key Connected',
             onPressed: _showApiKeyDialog,
           ),
           const SizedBox(width: 6),
@@ -644,9 +649,27 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Physics, Chemistry, Biology, Math, or Urdu',
+            'Computer Science, Math, Physics, Chemistry, Biology',
             style: TextStyle(fontSize: 13, color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B)),
           ),
+          if (AiTutorService.apiKey.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 14),
+              child: OutlinedButton.icon(
+                onPressed: _showApiKeyDialog,
+                icon: const Icon(Icons.vpn_key_rounded, size: 16, color: Color(0xFF4F46E5)),
+                label: const Text(
+                  'Connect Free Gemini AI Key',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF4F46E5)),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFFC7D2FE)),
+                  backgroundColor: isDark ? const Color(0xFF1E1B4B) : const Color(0xFFEEF2FF),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                ),
+              ),
+            ),
         ],
       ),
     );
