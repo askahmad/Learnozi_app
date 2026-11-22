@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../models/user_profile.dart';
 import '../services/study_planner_service.dart';
 
 class PomodoroTimerScreen extends StatefulWidget {
@@ -145,7 +146,7 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> {
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
             ),
             Text(
-              'Deep work & productivity streaks (FR-08)',
+              'Deep work & productivity streaks',
               style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
             ),
           ],
@@ -244,8 +245,14 @@ class _PomodoroTimerScreenState extends State<PomodoroTimerScreen> {
                 child: DropdownButton<String>(
                   value: _selectedSubject,
                   isExpanded: true,
-                  items: ['Physics', 'Chemistry', 'Computer Science', 'Biology', 'Mathematics']
-                      .map((s) => DropdownMenuItem(value: s, child: Text('Subject: $s')))
+                  items: UserProfile.academicSubjects
+                      .map((s) => DropdownMenuItem(
+                            value: s,
+                            child: Text(
+                              'Subject: $s',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ))
                       .toList(),
                   onChanged: _isRunning ? null : (val) => setState(() => _selectedSubject = val!),
                 ),

@@ -101,7 +101,7 @@ class _HistoryScreenState extends State<HistoryScreen> with SingleTickerProvider
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
             ),
             Text(
-              'Past quiz attempts, summaries & export (FR-12 & FR-13)',
+              'Past quiz attempts, summaries & export',
               style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
             ),
           ],

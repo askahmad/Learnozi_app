@@ -314,7 +314,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
             ),
             Text(
-              'Collaborative doubt clearance hub (FR-09)',
+              'Collaborative doubt clearance hub',
               style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
             ),
           ],

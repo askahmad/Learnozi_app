@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import 'firebase_options.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/splash_screen.dart';
 import 'services/auth_service.dart';
 import 'services/theme_service.dart';
+import 'services/user_service.dart';
 import 'utils/app_theme.dart';
 
 void main() async {
@@ -31,15 +33,17 @@ class LearnoziApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: ThemeService(),
+      listenable: Listenable.merge([ThemeService(), UserService()]),
       builder: (context, _) {
+        final isUrdu = UserService().profile.language == 'Urdu';
         return MaterialApp(
-          title: 'Learnozi',
+          title: isUrdu ? 'لرنوزی' : 'Learnozi',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: ThemeService().themeMode,
-          home: const AuthWrapper(),
+          locale: isUrdu ? const Locale('ur', 'PK') : const Locale('en', 'US'),
+          home: const SplashScreen(),
         );
       },
     );
@@ -53,25 +57,34 @@ class AuthWrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     final authService = AuthService();
 
-    return StreamBuilder<User?>(
-      stream: authService.authStateChanges,
-      builder: (context, snapshot) {
-        // If checking authentication state, show loading spinner
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
-
-        // If user is logged in, show HomeScreen
-        if (snapshot.hasData && snapshot.data != null) {
+    return ListenableBuilder(
+      listenable: authService,
+      builder: (context, _) {
+        if (authService.isDemoActive) {
           return const HomeScreen();
         }
 
-        // Otherwise show LoginScreen
-        return const LoginScreen();
+        return StreamBuilder<User?>(
+          stream: authService.authStateChanges,
+          builder: (context, snapshot) {
+            // If checking authentication state, show loading spinner
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Scaffold(
+                body: Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            }
+
+            // If user is logged in, show HomeScreen
+            if (snapshot.hasData && snapshot.data != null) {
+              return const HomeScreen();
+            }
+
+            // Otherwise show LoginScreen
+            return const LoginScreen();
+          },
+        );
       },
     );
   }

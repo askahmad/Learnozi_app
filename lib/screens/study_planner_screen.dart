@@ -140,7 +140,7 @@ class _StudyPlannerScreenState extends State<StudyPlannerScreen> {
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
             ),
             Text(
-              'Timetable & Milestone Scheduler (FR-07)',
+              'Timetable & Milestone Scheduler',
               style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
             ),
           ],

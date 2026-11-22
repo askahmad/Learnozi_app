@@ -1,13 +1,23 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+
 import '../services/document_service.dart';
 import '../services/quota_service.dart';
 import '../services/user_service.dart';
 import '../services/flashcard_service.dart';
+import '../widgets/academic_markdown_view.dart';
 import 'quiz_screen.dart';
 
 class DocumentChatScreen extends StatefulWidget {
   final String? initialDocId;
-  const DocumentChatScreen({super.key, this.initialDocId});
+  final bool autoOpenNewDialog;
+  const DocumentChatScreen({
+    super.key,
+    this.initialDocId,
+    this.autoOpenNewDialog = false,
+  });
 
   @override
   State<DocumentChatScreen> createState() => _DocumentChatScreenState();
@@ -30,6 +40,11 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
     super.initState();
     if (_docService.documents.isNotEmpty) {
       _selectedDocId = widget.initialDocId ?? _docService.documents.first.id;
+    }
+    if (widget.autoOpenNewDialog) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showNewDocDialog();
+      });
     }
   }
 
@@ -89,6 +104,11 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
   void _showNewDocDialog() {
     final nameController = TextEditingController();
     final contentController = TextEditingController();
+    Uint8List? pickedBytes;
+    String? pickedFileName;
+    int pickedByteSize = 0;
+    bool isPickingFile = false;
+    String? modalError;
 
     showModalBottomSheet(
       context: context,
@@ -96,6 +116,43 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
+          Future<void> choosePdf() async {
+            setModalState(() {
+              isPickingFile = true;
+              modalError = null;
+            });
+            try {
+              final file = await FilePicker.pickFile(
+                type: FileType.custom,
+                allowedExtensions: ['pdf', 'txt', 'doc', 'docx', 'md'],
+              );
+              if (file != null) {
+                final bytes = await file.readAsBytes();
+                final size = file.lengthSync() ?? bytes.length;
+                setModalState(() {
+                  pickedBytes = bytes;
+                  pickedFileName = file.name;
+                  pickedByteSize = size;
+                  if (nameController.text.trim().isEmpty) {
+                    nameController.text = file.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '');
+                  }
+                  if (file.name.toLowerCase().endsWith('.txt') || file.name.toLowerCase().endsWith('.md')) {
+                    try {
+                      contentController.text = utf8.decode(bytes);
+                    } catch (_) {}
+                  }
+                });
+              }
+            } catch (e) {
+              debugPrint('File picker error: $e');
+              setModalState(() {
+                modalError = 'Device file picker notice: $e\n(If you just added packages, do a full app rebuild). You can also paste notes or load the sample below!';
+              });
+            } finally {
+              setModalState(() => isPickingFile = false);
+            }
+          }
+
           return Container(
             padding: EdgeInsets.only(
               left: 20,
@@ -117,11 +174,18 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
                     children: [
                       const Row(
                         children: [
-                          Icon(Icons.upload_file_rounded, color: Color(0xFF4F46E5)),
+                          Icon(
+                            Icons.picture_as_pdf_rounded,
+                            color: Color(0xFFEF4444),
+                            size: 24,
+                          ),
                           SizedBox(width: 8),
                           Text(
-                            'Upload / Add Notes',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            'Upload PDF / Study Notes',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
@@ -131,49 +195,209 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
-                    'Paste lecture notes or chapter summary (Max 5 MB). The AI tutor will extract key points and chat with it.',
+                    'Upload a PDF document from your phone or paste notes (Max 5 MB). The AI tutor analyzes the full document and answers your questions.',
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                   ),
                   const SizedBox(height: 16),
+
+                  if (modalError != null)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFFECACA)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline_rounded, color: Color(0xFFDC2626), size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              modalError!,
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF991B1B)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // FILE PICKER CARD / BUTTON
+                  InkWell(
+                    onTap: isPickingFile ? null : choosePdf,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      decoration: BoxDecoration(
+                        color: pickedFileName != null ? const Color(0xFFF0FDF4) : const Color(0xFFEEF2FF),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: pickedFileName != null ? const Color(0xFF86EFAC) : const Color(0xFFC7D2FE),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: pickedFileName != null ? const Color(0xFFDCFCE7) : const Color(0xFFE0E7FF),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              pickedFileName != null ? Icons.check_circle_rounded : Icons.upload_file_rounded,
+                              color: pickedFileName != null ? const Color(0xFF16A34A) : const Color(0xFF4F46E5),
+                              size: 26,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  pickedFileName ?? 'Tap to Select PDF from Phone',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: pickedFileName != null ? const Color(0xFF15803D) : const Color(0xFF1E1B4B),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  pickedFileName != null
+                                      ? 'Selected file • ${(pickedByteSize / (1024 * 1024)).toStringAsFixed(2)} MB • Tap to change'
+                                      : 'Supports .pdf, .txt, .docx (Max 5 MB)',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: pickedFileName != null ? const Color(0xFF16A34A) : const Color(0xFF6366F1),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (pickedFileName != null)
+                            IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF991B1B)),
+                              tooltip: 'Remove File',
+                              onPressed: () {
+                                setModalState(() {
+                                  pickedBytes = null;
+                                  pickedFileName = null;
+                                  pickedByteSize = 0;
+                                });
+                              },
+                            )
+                          else if (isPickingFile)
+                            const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4F46E5)),
+                            )
+                          else
+                            const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF4F46E5)),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Quick Demo Loader
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () {
+                        setModalState(() {
+                          nameController.text = 'CS301: Data Structures - Binary Search Trees';
+                          contentController.text = '''Data Structures & Algorithms - Chapter 4: Binary Search Trees
+1. Definition: A Binary Search Tree (BST) is a node-based binary tree data structure where each node has at most two children.
+2. Property: For every node X, all elements in the left subtree are smaller than X (key < X.key), and all elements in the right subtree are greater than X (key > X.key).
+3. Search Time Complexity: Average case O(log n), Worst case O(n) when unbalanced (skewed).
+4. Balanced BST: AVL trees and Red-Black trees maintain O(log n) worst-case height via rotations.
+5. In-order Traversal: Visiting left subtree, root, then right subtree yields values in sorted ascending order.
+6. Insertion: Compare target with root, recursively branch left if smaller or right if greater until reaching an empty leaf position.''';
+                          pickedFileName = 'CS301_Binary_Search_Trees.pdf';
+                          pickedByteSize = 48 * 1024;
+                          modalError = null;
+                        });
+                      },
+                      icon: const Icon(Icons.auto_stories_rounded, size: 14, color: Color(0xFF4F46E5)),
+                      label: const Text(
+                        'Load Sample Lecture Notes',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF4F46E5)),
+                      ),
+                    ),
+                  ),
+
+                  Row(
+                    children: [
+                      const Expanded(child: Divider(color: Color(0xFFE2E8F0))),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Text(
+                          pickedFileName != null ? 'DOCUMENT DETAILS' : 'OR PASTE TEXT MANUALLY',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)),
+                        ),
+                      ),
+                      const Expanded(child: Divider(color: Color(0xFFE2E8F0))),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
                   TextField(
                     controller: nameController,
                     decoration: InputDecoration(
                       labelText: 'Document / Chapter Title',
                       hintText: 'e.g. Chapter 4: Chemical Bonding Notes',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       prefixIcon: const Icon(Icons.title_rounded),
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: contentController,
-                    maxLines: 8,
-                    decoration: InputDecoration(
-                      labelText: 'Paste Document / Notes Text',
-                      hintText: 'Paste the content of your PDF, book excerpt, or lecture notes here...',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      alignLabelWithHint: true,
+                  const SizedBox(height: 12),
+
+                  if (pickedFileName == null)
+                    TextField(
+                      controller: contentController,
+                      maxLines: 5,
+                      decoration: InputDecoration(
+                        labelText: 'Paste Document / Notes Text',
+                        hintText: 'Paste the content of your PDF, book excerpt, or lecture notes here...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        alignLabelWithHint: true,
+                      ),
                     ),
-                  ),
+
                   const SizedBox(height: 18),
                   ElevatedButton(
-                    onPressed: _isUploading
+                    onPressed: _isUploading || isPickingFile
                         ? null
                         : () async {
-                            final name = nameController.text.trim();
-                            final content = contentController.text.trim();
-                            if (name.isEmpty || content.isEmpty) return;
+                            final rawContent = contentController.text.trim();
 
-                            final byteSize = content.length; // 1 char approx 1 byte
+                            // If no file picked and no text entered, trigger file selection for user!
+                            if (pickedBytes == null && rawContent.isEmpty) {
+                              await choosePdf();
+                              return;
+                            }
+
+                            final name = nameController.text.trim().isNotEmpty
+                                ? nameController.text.trim()
+                                : (pickedFileName != null
+                                    ? pickedFileName!.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), '')
+                                    : 'Study Notes (${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')})');
+
+                            final byteSize = pickedBytes != null ? pickedByteSize : rawContent.length;
                             if (byteSize > 5 * 1024 * 1024) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('File exceeds 5 MB limit. Please shorten content.'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
+                              setModalState(() {
+                                modalError = 'File exceeds 5 MB limit. Please select a smaller document.';
+                              });
                               return;
                             }
 
@@ -185,20 +409,29 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
                             try {
                               final res = await _docService.summarizeDocument(
                                 docName: name,
-                                docText: content,
+                                docText: rawContent,
                                 byteSize: byteSize,
+                                pdfBytes: pickedBytes,
                               );
                               final doc = res['document'] as UploadedDoc;
                               setState(() {
                                 _selectedDocId = doc.id;
                                 _isUploading = false;
                               });
+                              messenger.showSnackBar(
+                                SnackBar(
+                                  content: Text('Document "${doc.name}" processed & ready to chat!'),
+                                  backgroundColor: const Color(0xFF059669),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
                             } catch (e) {
                               setState(() => _isUploading = false);
                               messenger.showSnackBar(
                                 SnackBar(
-                                  content: Text(e.toString()),
+                                  content: Text(e.toString().replaceAll('Exception: ', '')),
                                   backgroundColor: Colors.red,
+                                  behavior: SnackBarBehavior.floating,
                                 ),
                               );
                             }
@@ -207,15 +440,39 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
                       backgroundColor: const Color(0xFF4F46E5),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     child: _isUploading
                         ? const SizedBox(
                             width: 20,
                             height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
-                        : const Text('Process & Summarize Document', style: TextStyle(fontWeight: FontWeight.bold)),
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                (pickedBytes != null || pickedFileName != null)
+                                    ? Icons.picture_as_pdf_rounded
+                                    : (contentController.text.trim().isNotEmpty ? Icons.auto_awesome_rounded : Icons.file_upload_rounded),
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                (pickedBytes != null || pickedFileName != null)
+                                    ? 'Upload & Analyze PDF'
+                                    : (contentController.text.trim().isNotEmpty
+                                        ? 'Process & Summarize Notes'
+                                        : 'Select & Upload PDF Document'),
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
                   ),
                 ],
               ),
@@ -255,7 +512,10 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
               ),
               child: Text(
                 _quotaService.getResetCountdownText(),
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
               ),
             ),
           ],
@@ -263,7 +523,9 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
         actions: [
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4F46E5)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4F46E5),
+            ),
             child: const Text('Got It', style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -285,20 +547,75 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
           children: [
             Text(
               'Document Chat & Notes',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A),
+              ),
             ),
             Text(
-              'Grounded strictly in your syllabus notes (FR-03)',
+              'Grounded strictly in your syllabus notes',
               style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
             ),
           ],
         ),
         actions: [
+          // Language Switcher Pill
+          InkWell(
+            onTap: () {
+              _userService.toggleLanguage();
+              setState(() {});
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    _userService.profile.language == 'Urdu'
+                        ? 'اردو زبان منتخب ہو گئی ہے'
+                        : 'Switched to English',
+                  ),
+                  duration: const Duration(seconds: 1),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEEF2FF),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFC7D2FE)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.translate_rounded,
+                    size: 14,
+                    color: Color(0xFF4F46E5),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _userService.profile.language == 'Urdu' ? 'اردو' : 'EN',
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF4F46E5),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
           IconButton(
             tooltip: 'Add Notes (Max 5MB)',
-            icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF4F46E5)),
+            icon: const Icon(
+              Icons.add_circle_outline_rounded,
+              color: Color(0xFF4F46E5),
+            ),
             onPressed: _showNewDocDialog,
           ),
+          const SizedBox(width: 6),
         ],
       ),
       body: Column(
@@ -316,14 +633,31 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
                 final d = _docService.documents[i];
                 final isSelected = d.id == _selectedDocId;
                 return ChoiceChip(
-                  label: Text(
-                    d.name,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      color: isSelected ? Colors.white : const Color(0xFF334155),
-                    ),
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        d.isPdf ? Icons.picture_as_pdf_rounded : Icons.description_rounded,
+                        size: 14,
+                        color: isSelected
+                            ? Colors.white
+                            : (d.isPdf ? const Color(0xFFEF4444) : const Color(0xFF4F46E5)),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        d.name,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: isSelected
+                              ? Colors.white
+                              : const Color(0xFF334155),
+                        ),
+                      ),
+                    ],
                   ),
                   selected: isSelected,
                   selectedColor: const Color(0xFF4F46E5),
@@ -344,17 +678,31 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.menu_book_rounded, size: 54, color: Color(0xFF94A3B8)),
+                        const Icon(
+                          Icons.picture_as_pdf_rounded,
+                          size: 54,
+                          color: Color(0xFF94A3B8),
+                        ),
                         const SizedBox(height: 12),
                         const Text(
                           'No Document Selected',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF334155),
+                          ),
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 10),
                         ElevatedButton.icon(
                           onPressed: _showNewDocDialog,
                           icon: const Icon(Icons.upload_file_rounded),
-                          label: const Text('Add Document Notes'),
+                          label: const Text('Upload PDF / Add Notes'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF4F46E5),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
                         ),
                       ],
                     ),
@@ -370,7 +718,10 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
                       // Document Usage Pill
                       Center(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF1F5F9),
                             borderRadius: BorderRadius.circular(20),
@@ -379,11 +730,18 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.data_usage_rounded, size: 14, color: Color(0xFF64748B)),
+                              const Icon(
+                                Icons.data_usage_rounded,
+                                size: 14,
+                                color: Color(0xFF64748B),
+                              ),
                               const SizedBox(width: 6),
                               Text(
                                 '${doc.totalCharacters} chars loaded • ${(doc.byteSize / 1024).toStringAsFixed(1)} KB (Max 5MB)',
-                                style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF64748B),
+                                ),
                               ),
                             ],
                           ),
@@ -402,10 +760,19 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
                               SizedBox(
                                 width: 16,
                                 height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4F46E5)),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Color(0xFF4F46E5),
+                                ),
                               ),
                               SizedBox(width: 10),
-                              Text('Consulting document text...', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                              Text(
+                                'Consulting document text...',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -427,13 +794,23 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
                     child: TextField(
                       controller: _textController,
                       decoration: InputDecoration(
-                        hintText: 'Ask anything covered in this document...',
-                        hintStyle: const TextStyle(fontSize: 13.5, color: Color(0xFF94A3B8)),
+                        hintText: _userService.profile.language == 'Urdu'
+                            ? 'دستاویز کے بارے میں سوال پوچھیں...'
+                            : 'Ask anything covered in this document...',
+                        hintStyle: const TextStyle(
+                          fontSize: 13.5,
+                          color: Color(0xFF94A3B8),
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
-                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE2E8F0),
+                          ),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
                         filled: true,
                         fillColor: const Color(0xFFF8FAFC),
                       ),
@@ -449,7 +826,11 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
-                      icon: const Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 20),
+                      icon: const Icon(
+                        Icons.arrow_upward_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                       onPressed: _isProcessing ? null : _handleSendMessage,
                     ),
                   ),
@@ -488,13 +869,21 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
                   color: const Color(0xFFEEF2FF),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.auto_stories_rounded, size: 16, color: Color(0xFF4F46E5)),
+                child: const Icon(
+                  Icons.auto_stories_rounded,
+                  size: 16,
+                  color: Color(0xFF4F46E5),
+                ),
               ),
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
                   'Auto-Generated Summary & Key Points',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A)),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13.5,
+                    color: Color(0xFF0F172A),
+                  ),
                 ),
               ),
             ],
@@ -502,12 +891,20 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
           const SizedBox(height: 10),
           Text(
             doc.summary,
-            style: const TextStyle(fontSize: 13, height: 1.4, color: Color(0xFF334155)),
+            style: const TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              color: Color(0xFF334155),
+            ),
           ),
           const SizedBox(height: 12),
           const Text(
             'High-Yield Key Takeaways:',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF64748B),
+            ),
           ),
           const SizedBox(height: 6),
           ...doc.keyPoints.map(
@@ -516,11 +913,20 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('• ', style: TextStyle(color: Color(0xFF4F46E5), fontWeight: FontWeight.bold)),
+                  const Text(
+                    '• ',
+                    style: TextStyle(
+                      color: Color(0xFF4F46E5),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   Expanded(
                     child: Text(
                       point,
-                      style: const TextStyle(fontSize: 12.5, color: Color(0xFF334155)),
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: Color(0xFF334155),
+                      ),
                     ),
                   ),
                 ],
@@ -544,15 +950,20 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
                   },
                   icon: const Icon(Icons.quiz_rounded, size: 15),
                   label: const Text(
-                    'Take Quiz on Note (FR-05)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+                    'Take Quiz on Note',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11.5,
+                    ),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF059669),
                     foregroundColor: Colors.white,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                 ),
               ),
@@ -564,8 +975,12 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
                   for (var i = 0; i < doc.keyPoints.length; i++) {
                     final pt = doc.keyPoints[i];
                     final parts = pt.split(':');
-                    final front = parts.isNotEmpty ? parts.first.replaceAll('•', '').trim() : 'Concept ${i + 1}';
-                    final back = parts.length > 1 ? parts.sublist(1).join(':').trim() : pt;
+                    final front = parts.isNotEmpty
+                        ? parts.first.replaceAll('•', '').trim()
+                        : 'Concept ${i + 1}';
+                    final back = parts.length > 1
+                        ? parts.sublist(1).join(':').trim()
+                        : pt;
                     flashService.addFlashcard(
                       category: 'Study Notes',
                       front: '$front (${doc.name})',
@@ -575,7 +990,9 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
                   }
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Generated $added SM-2 Flashcards from this note!'),
+                      content: Text(
+                        'Generated $added SM-2 Flashcards from this note!',
+                      ),
                       backgroundColor: const Color(0xFF10B981),
                       behavior: SnackBarBehavior.floating,
                     ),
@@ -590,8 +1007,13 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
                   backgroundColor: const Color(0xFF4F46E5),
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
             ],
@@ -607,12 +1029,18 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 5),
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.78,
+        ),
         decoration: BoxDecoration(
           color: m.isUser ? const Color(0xFF4F46E5) : Colors.white,
           borderRadius: BorderRadius.circular(16).copyWith(
-            bottomRight: m.isUser ? const Radius.circular(0) : const Radius.circular(16),
-            bottomLeft: !m.isUser ? const Radius.circular(0) : const Radius.circular(16),
+            bottomRight: m.isUser
+                ? const Radius.circular(0)
+                : const Radius.circular(16),
+            bottomLeft: !m.isUser
+                ? const Radius.circular(0)
+                : const Radius.circular(16),
           ),
           border: m.isUser ? null : Border.all(color: const Color(0xFFE2E8F0)),
           boxShadow: [
@@ -626,14 +1054,23 @@ class _DocumentChatScreenState extends State<DocumentChatScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              m.text,
-              style: TextStyle(
-                fontSize: 13.5,
-                height: 1.35,
-                color: m.isUser ? Colors.white : const Color(0xFF0F172A),
-              ),
-            ),
+            m.isUser
+                ? Text(
+                    m.text,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      height: 1.4,
+                      color: Colors.white,
+                    ),
+                  )
+                : AcademicMarkdownView(
+                    text: m.text,
+                    baseStyle: const TextStyle(
+                      fontSize: 13.5,
+                      height: 1.55,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
             if (!m.isUser && m.charactersUsed > 0) ...[
               const SizedBox(height: 6),
               Text(

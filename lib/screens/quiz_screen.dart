@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/quiz_model.dart';
+import '../models/user_profile.dart';
 import '../services/quiz_service.dart';
 import '../services/user_service.dart';
 import '../services/adaptive_service.dart';
@@ -30,10 +31,19 @@ class _QuizScreenState extends State<QuizScreen> {
 
   // Quiz Setup Config
   final _topicController = TextEditingController(text: 'Rotational & Circular Motion');
+  final _customSubjectController = TextEditingController();
   String _selectedSubject = 'Physics';
   String _selectedQuizType = 'mcq'; // 'mcq', 'short', 'long', 'mixed'
   final int _questionCount = 4;
   bool _focusWeakTopics = true;
+
+  String get effectiveSubject {
+    if (_selectedSubject == 'Other (Type Custom Subject)') {
+      final custom = _customSubjectController.text.trim();
+      return custom.isNotEmpty ? custom : 'General Studies';
+    }
+    return _selectedSubject;
+  }
 
   @override
   void initState() {
@@ -46,13 +56,34 @@ class _QuizScreenState extends State<QuizScreen> {
   @override
   void dispose() {
     _topicController.dispose();
+    _customSubjectController.dispose();
     _writtenAnswerController.dispose();
     super.dispose();
   }
 
   Future<void> _startQuiz() async {
+    if (_selectedSubject == 'Other (Type Custom Subject)' && _customSubjectController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please type your custom subject name.'),
+          backgroundColor: Color(0xFFEF4444),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     final topic = _topicController.text.trim();
-    if (topic.isEmpty) return;
+    if (topic.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a topic name.'),
+          backgroundColor: Color(0xFFEF4444),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -66,7 +97,7 @@ class _QuizScreenState extends State<QuizScreen> {
     try {
       final questions = await _quizService.generateQuiz(
         topic: topic,
-        subject: _selectedSubject,
+        subject: effectiveSubject,
         studentLevel: _userService.profile.academicLevelString,
         quizType: _selectedQuizType,
         count: _questionCount,
@@ -141,7 +172,7 @@ class _QuizScreenState extends State<QuizScreen> {
         QuizAttempt(
           id: 'term_${DateTime.now().millisecondsSinceEpoch}',
           title: '${_topicController.text.trim()} (Terminated)',
-          subject: _selectedSubject,
+          subject: effectiveSubject,
           topic: _topicController.text.trim(),
           questions: _currentQuestions,
           timestamp: DateTime.now(),
@@ -220,7 +251,7 @@ class _QuizScreenState extends State<QuizScreen> {
     final attempt = QuizAttempt(
       id: 'quiz_${DateTime.now().millisecondsSinceEpoch}',
       title: '${_topicController.text.trim()} Test',
-      subject: _selectedSubject,
+      subject: effectiveSubject,
       topic: _topicController.text.trim(),
       questions: _currentQuestions,
       timestamp: DateTime.now(),
@@ -719,18 +750,46 @@ class _QuizScreenState extends State<QuizScreen> {
           DropdownButtonFormField<String>(
             dropdownColor: isDark ? AppColors.darkSurface : Colors.white,
             initialValue: _selectedSubject,
+            isExpanded: true,
             decoration: InputDecoration(
+              labelText: 'Select Subject',
+              prefixIcon: const Icon(Icons.menu_book_rounded, color: AppColors.primary, size: 20),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               filled: true,
               fillColor: isDark ? AppColors.darkSurface : Colors.white,
             ),
-            items: ['Physics', 'Chemistry', 'Computer Science', 'Biology', 'Mathematics']
-                .map((s) => DropdownMenuItem(value: s, child: Text(s, style: TextStyle(color: isDark ? AppColors.darkTextPrimary : null))))
+            items: UserProfile.academicSubjects
+                .map((s) => DropdownMenuItem(
+                      value: s,
+                      child: Text(
+                        s,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          color: isDark ? AppColors.darkTextPrimary : null,
+                        ),
+                      ),
+                    ))
                 .toList(),
             onChanged: (val) {
               if (val != null) setState(() => _selectedSubject = val);
             },
           ),
+          if (_selectedSubject == 'Other (Type Custom Subject)') ...[
+            const SizedBox(height: 10),
+            TextField(
+              controller: _customSubjectController,
+              style: TextStyle(color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A)),
+              decoration: InputDecoration(
+                labelText: 'Enter Your Custom Subject',
+                hintText: 'e.g. Compiler Construction, Numerical Computing, Law, Psychology',
+                prefixIcon: const Icon(Icons.edit_note_rounded, color: Color(0xFF4F46E5)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                filled: true,
+                fillColor: isDark ? AppColors.darkSurface : Colors.white,
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
 
           TextField(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/flashcard_model.dart';
+import '../models/user_profile.dart';
 import '../services/flashcard_service.dart';
 
 class FlashcardsScreen extends StatefulWidget {
@@ -32,6 +33,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
   void _showAddCardDialog() {
     final frontController = TextEditingController();
     final backController = TextEditingController();
+    final customCategoryController = TextEditingController();
     String category = 'Physics';
 
     showModalBottomSheet(
@@ -60,17 +62,34 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(
                     initialValue: category,
+                    isExpanded: true,
                     decoration: InputDecoration(
-                      labelText: 'Category',
+                      labelText: 'Category / Subject',
+                      prefixIcon: const Icon(Icons.category_rounded, color: Color(0xFF4F46E5), size: 20),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    items: ['Physics', 'Chemistry', 'Computer Science', 'Biology', 'General']
-                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                    items: UserProfile.academicSubjects
+                        .map((c) => DropdownMenuItem(
+                              value: c,
+                              child: Text(c, overflow: TextOverflow.ellipsis),
+                            ))
                         .toList(),
                     onChanged: (val) {
                       if (val != null) setModalState(() => category = val);
                     },
                   ),
+                  if (category == 'Other (Type Custom Subject)') ...[
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: customCategoryController,
+                      decoration: InputDecoration(
+                        labelText: 'Enter Custom Subject / Category',
+                        hintText: 'e.g. Compiler Construction, Law',
+                        prefixIcon: const Icon(Icons.edit_note_rounded, color: Color(0xFF4F46E5)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   TextField(
                     controller: frontController,
@@ -98,10 +117,16 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
                       final back = backController.text.trim();
                       if (front.isEmpty || back.isEmpty) return;
 
+                      final effectiveCat = category == 'Other (Type Custom Subject)'
+                          ? (customCategoryController.text.trim().isNotEmpty
+                              ? customCategoryController.text.trim()
+                              : 'General')
+                          : category;
+
                       _flashcardService.addFlashcard(
                         front: front,
                         back: back,
-                        category: category,
+                        category: effectiveCat,
                       );
                       Navigator.pop(ctx);
                       setState(() {});
@@ -161,7 +186,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
             ),
             Text(
-              'SuperMemo SM-2 Spaced Repetition (FR-06)',
+              'SuperMemo SM-2 Spaced Repetition',
               style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
             ),
           ],

@@ -5,6 +5,8 @@ import '../services/ai_tutor_service.dart';
 import '../services/user_service.dart';
 import '../services/quota_service.dart';
 import '../utils/app_colors.dart';
+import '../widgets/academic_markdown_view.dart';
+import 'document_chat_screen.dart';
 
 class AiTutorScreen extends StatefulWidget {
   const AiTutorScreen({super.key});
@@ -26,12 +28,19 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
   late String _selectedLanguage;
   late String _selectedLevel;
 
-  final List<String> _quickSuggestions = [
-    'Explain Newton\'s Third Law with exam example',
-    'Structure of DNA in simple steps',
-    'Difference between Mitosis and Meiosis in Urdu',
-    'Solve quadratic equation by factorization',
-  ];
+  List<String> get _quickSuggestions => _selectedLanguage == 'Urdu'
+      ? [
+          'نیوٹن کا تیسرا قانون مع امتحانی مثال',
+          'مائیٹوسس اور میوسس میں بنیادی فرق',
+          'ڈی این اے کی ساخت آسان الفاظ میں',
+          'دو درجی مساوات حل کرنے کا طریقہ',
+        ]
+      : [
+          'Explain Newton\'s Third Law with exam example',
+          'Structure of DNA in simple steps',
+          'Difference between Mitosis and Meiosis in Urdu',
+          'Solve quadratic equation by factorization',
+        ];
 
   final List<String> _baseLevels = const [
     'FSc / College',
@@ -56,22 +65,42 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
   @override
   void initState() {
     super.initState();
+    _userService.addListener(_onUserChanged);
     _selectedLanguage = _userService.profile.language;
     final profileLevel = _userService.profile.academicLevelString;
     _selectedLevel = profileLevel.isNotEmpty ? profileLevel : 'FSc / College';
-    // Welcome message from tutor
+    _resetWelcomeMessage();
+  }
+
+  void _resetWelcomeMessage() {
+    final isUrdu = _selectedLanguage == 'Urdu';
+    _messages.clear();
     _messages.add(
       ChatMessage(
         id: 'welcome',
-        text: 'Assalam-o-Alaikum! 🎓 I am your Learnozi AI Study Companion. Ask me any question from your syllabus in English or Urdu, and I\'ll explain it step-by-step with a revision summary!',
+        text: isUrdu
+            ? 'السلام علیکم! 🎓 میں آپ کا لرنوزی اے آئی اسٹڈی کمپینین ہوں۔ اپنے نصاب سے کوئی بھی سوال اردو یا انگلش میں پوچھیں، میں امتحانی مثال اور 3 نکاتی خلاصے کے ساتھ مرحلہ وار وضاحت کروں گا!'
+            : 'Assalam-o-Alaikum! 🎓 I am your Learnozi AI Study Companion. Ask me any question from your syllabus in English or Urdu, and I\'ll explain it step-by-step with a revision summary!',
         isUser: false,
         timestamp: DateTime.now(),
       ),
     );
   }
 
+  void _onUserChanged() {
+    if (mounted && _selectedLanguage != _userService.profile.language) {
+      setState(() {
+        _selectedLanguage = _userService.profile.language;
+        if (_messages.length <= 1) {
+          _resetWelcomeMessage();
+        }
+      });
+    }
+  }
+
   @override
   void dispose() {
+    _userService.removeListener(_onUserChanged);
     _textController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -113,27 +142,47 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
     _quotaService.consumeAiRequest();
     _scrollToBottom();
 
-    // Call Gemini API
-    final responseText = await _aiService.askTutor(
-      question: query,
-      studentLevel: _selectedLevel,
-      language: _selectedLanguage,
-    );
+    try {
+      // Call Gemini API
+      final responseText = await _aiService.askTutor(
+        question: query,
+        studentLevel: _selectedLevel,
+        language: _selectedLanguage,
+      );
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    final aiMsg = ChatMessage(
-      id: (DateTime.now().millisecondsSinceEpoch + 1).toString(),
-      text: responseText,
-      isUser: false,
-      timestamp: DateTime.now(),
-    );
+      final aiMsg = ChatMessage(
+        id: (DateTime.now().millisecondsSinceEpoch + 1).toString(),
+        text: responseText,
+        isUser: false,
+        timestamp: DateTime.now(),
+      );
 
-    setState(() {
-      _messages.add(aiMsg);
-      _isLoading = false;
-    });
-    _scrollToBottom();
+      setState(() {
+        _messages.add(aiMsg);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      final errorMsg = ChatMessage(
+        id: (DateTime.now().millisecondsSinceEpoch + 1).toString(),
+        text: _selectedLanguage == 'Urdu'
+            ? 'معذرت، رابطہ مکمل نہیں ہو سکا۔ برائے مہربانی انٹرنیٹ کنکشن چیک کریں اور دوبارہ کوشش کریں۔'
+            : 'Sorry, the request could not be completed. Please check your internet connection and try again.',
+        isUser: false,
+        timestamp: DateTime.now(),
+      );
+      setState(() {
+        _messages.add(errorMsg);
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        _scrollToBottom();
+      }
+    }
   }
 
   void _showApiKeyDialog() {
@@ -265,7 +314,7 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'AI Study Tutor',
+                  _selectedLanguage == 'Urdu' ? 'اے آئی اسٹڈی ٹیوٹر' : 'AI Study Tutor',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -273,7 +322,7 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
                   ),
                 ),
                 Text(
-                  'Syllabus & Exam Assistant',
+                  _selectedLanguage == 'Urdu' ? 'نصابی تفہیم اور امتحانی تیاری' : 'Syllabus & Exam Assistant',
                   style: TextStyle(
                     fontSize: 11,
                     color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
@@ -287,9 +336,23 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
           // Language Switcher Pill
           GestureDetector(
             onTap: () {
+              final newLang = _selectedLanguage == 'English' ? 'Urdu' : 'English';
+              _userService.updateProfile(language: newLang);
               setState(() {
-                _selectedLanguage = _selectedLanguage == 'English' ? 'Urdu' : 'English';
+                _selectedLanguage = newLang;
+                if (_messages.length <= 1) {
+                  _resetWelcomeMessage();
+                }
               });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    newLang == 'Urdu' ? 'اردو زبان منتخب ہو گئی ہے' : 'Switched to English mode',
+                  ),
+                  duration: const Duration(seconds: 1),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -304,7 +367,7 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
                   const Icon(Icons.translate_rounded, size: 14, color: Color(0xFF4F46E5)),
                   const SizedBox(width: 4),
                   Text(
-                    _selectedLanguage,
+                    _selectedLanguage == 'Urdu' ? 'اردو' : 'EN',
                     style: const TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.bold,
@@ -351,27 +414,33 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
                     ),
                   ],
                 ),
-                DropdownButton<String>(
-                  dropdownColor: isDark ? AppColors.darkSurface : Colors.white,
-                  value: _availableLevels.contains(_selectedLevel)
-                      ? _selectedLevel
-                      : _availableLevels.first,
-                  underline: const SizedBox(),
-                  icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF4F46E5), size: 18),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? AppColors.primaryLight : const Color(0xFF4F46E5),
+                Flexible(
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 180),
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      dropdownColor: isDark ? AppColors.darkSurface : Colors.white,
+                      value: _availableLevels.contains(_selectedLevel)
+                          ? _selectedLevel
+                          : _availableLevels.first,
+                      underline: const SizedBox(),
+                      icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF4F46E5), size: 18),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? AppColors.primaryLight : const Color(0xFF4F46E5),
+                      ),
+                      items: _availableLevels.map((lvl) {
+                        return DropdownMenuItem<String>(
+                          value: lvl,
+                          child: Text(lvl, overflow: TextOverflow.ellipsis),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) setState(() => _selectedLevel = val);
+                      },
+                    ),
                   ),
-                  items: _availableLevels.map((lvl) {
-                    return DropdownMenuItem<String>(
-                      value: lvl,
-                      child: Text(lvl, overflow: TextOverflow.ellipsis),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) setState(() => _selectedLevel = val);
-                  },
                 ),
               ],
             ),
@@ -465,15 +534,15 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
             ),
             child: Row(
               children: [
-                // Camera / Attachment Icon
+                // Document / PDF Attachment Icon
                 IconButton(
-                  icon: const Icon(Icons.camera_alt_outlined, color: Color(0xFF64748B), size: 22),
-                  tooltip: 'Capture notes page (Coming in Step 3)',
+                  icon: const Icon(Icons.attach_file_rounded, color: Color(0xFF4F46E5), size: 22),
+                  tooltip: 'Upload PDF Notes / Document',
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Camera & PDF document upload is configured in Step 3!'),
-                        behavior: SnackBarBehavior.floating,
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const DocumentChatScreen(autoOpenNewDialog: true),
                       ),
                     );
                   },
@@ -663,13 +732,13 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Response text
-                  SelectableText(
-                    msg.text,
-                    style: TextStyle(
+                  // Rich Academic Response text (Markdown, Math & Urdu RTL aware)
+                  AcademicMarkdownView(
+                    text: msg.text,
+                    baseStyle: TextStyle(
                       color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
                       fontSize: 14,
-                      height: 1.5,
+                      height: 1.6,
                     ),
                   ),
                   const SizedBox(height: 12),

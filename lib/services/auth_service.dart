@@ -1,13 +1,47 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import '../models/user_profile.dart';
+import 'user_service.dart';
 
-class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+class AuthService extends ChangeNotifier {
+  static final AuthService _instance = AuthService._internal();
+  factory AuthService() => _instance;
+  AuthService._internal();
+
+  FirebaseAuth? _customAuth;
+  FirebaseAuth get _auth {
+    try {
+      return _customAuth ?? FirebaseAuth.instance;
+    } catch (_) {
+      // Gracefully handles unit testing environments where Firebase is not initialized
+      return _customAuth ?? FirebaseAuth.instance;
+    }
+  }
+
+  GoogleSignIn? _customGoogleSignIn;
+  GoogleSignIn get _googleSignIn => _customGoogleSignIn ?? GoogleSignIn();
+
+  bool _isDemoActive = false;
+  bool get isDemoActive => _isDemoActive;
 
   // Current User stream to listen to login/logout state changes
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  Stream<User?> get authStateChanges {
+    try {
+      return _auth.authStateChanges();
+    } catch (_) {
+      return const Stream.empty();
+    }
+  }
 
   // Get current logged-in user
-  User? get currentUser => _auth.currentUser;
+  User? get currentUser {
+    try {
+      return _auth.currentUser;
+    } catch (_) {
+      return null;
+    }
+  }
 
   // 1. User Registration (Sign Up)
   Future<String?> signUp({
@@ -22,28 +56,35 @@ class AuthService {
             password: password.trim(),
           );
 
-      // Save user's display name
+      // Save user's display name and send official Firebase verification link
       if (credential.user != null) {
         await credential.user!.updateDisplayName(name.trim());
+        try {
+          await credential.user!.sendEmailVerification();
+        } catch (e) {
+          debugPrint('Verification email send error: $e');
+        }
         await credential.user!.reload();
       }
 
+      _isDemoActive = false;
+      notifyListeners();
       return null; // Success (no error)
     } on FirebaseAuthException catch (e) {
       switch (e.code) {
         case 'email-already-in-use':
-          return 'This mail is already regesterd.';
+          return 'This email is already registered. Please sign in instead.';
         case 'invalid-email':
-          return 'This email format is wrong.';
+          return 'The email address format is invalid.';
         case 'weak-password':
-          return 'Weak Password.';
+          return 'The password is too weak. Please use at least 6 characters.';
         case 'network-request-failed':
-          return 'Check your Internet connection.';
+          return 'Network error: Please check your internet connection.';
         default:
-          return e.message ?? 'Registration fail.';
+          return e.message ?? 'Registration failed. Please try again.';
       }
     } catch (e) {
-      return 'Unknown problem.';
+      return 'An unexpected error occurred during registration.';
     }
   }
 
@@ -57,30 +98,85 @@ class AuthService {
         email: email.trim(),
         password: password.trim(),
       );
+      _isDemoActive = false;
+      notifyListeners();
       return null; // Success
     } on FirebaseAuthException catch (e) {
       switch (e.code) {
         case 'user-not-found':
-          return 'No account found with this email.';
+          return 'No registered account found with this email.';
         case 'wrong-password':
-          return 'Wrong password entered.';
+          return 'Incorrect password entered.';
         case 'invalid-credential':
-          return 'Invalid email or password.';
+          return 'Invalid email or password credentials.';
         case 'invalid-email':
-          return 'Invalid email address.';
+          return 'Invalid email address format.';
         case 'user-disabled':
-          return 'This account is disabled.';
+          return 'This student account has been disabled by administrator.';
         case 'network-request-failed':
-          return 'Check your Internet connection.';
+          return 'Network error: Please check your internet connection.';
         default:
-          return e.message ?? 'Login fail.';
+          return e.message ?? 'Login failed. Please try again.';
       }
     } catch (e) {
-      return 'Unknown problem.';
+      return 'An unexpected error occurred during login.';
     }
   }
 
-  // 3. Password Reset
+  // 3. Quick Student Demo Sign-In (Allows single-click student exploration)
+  void loginAsDemoStudent({
+    String? name,
+    String? email,
+    String? phoneNumber,
+    EducationType? educationType,
+    String? schoolGrade,
+    String? schoolCourse,
+    String? universityName,
+    String? semester,
+    String? program,
+  }) {
+    _isDemoActive = true;
+    final finalEduType = educationType ?? EducationType.school;
+    UserService().setNewProfile(
+      name: name ?? 'Muhammad Ahmad',
+      email: email ?? 'ahmad@learnozi.pk',
+      phoneNumber: phoneNumber ?? '',
+      educationType: finalEduType,
+      schoolGrade: finalEduType == EducationType.school
+          ? (schoolGrade ?? '11th (FSc Part 1)')
+          : '',
+      schoolCourse: finalEduType == EducationType.school
+          ? (schoolCourse ?? 'Pre-Medical')
+          : '',
+      universityName: finalEduType == EducationType.university
+          ? (universityName ?? 'Khwaja Fareed UEIT (KFUEIT), Rahim Yar Khan')
+          : '',
+      semester: finalEduType == EducationType.university
+          ? (semester ?? '')
+          : '',
+      program: finalEduType == EducationType.university
+          ? (program ?? 'BS Computer Science (BSCS)')
+          : '',
+      role: 'student',
+    );
+    notifyListeners();
+  }
+
+  void loginAsDemoAdmin() {
+    _isDemoActive = true;
+    UserService().updateProfile(
+      name: 'Dr. Mutiullah (Supervisor / Admin)',
+      email: 'admin@learnozi.pk',
+      phoneNumber: '+92 300 9657618',
+      educationType: EducationType.university,
+      universityName: 'Learnozi University Admin Panel',
+      program: 'Head of Computer Science',
+      role: 'admin',
+    );
+    notifyListeners();
+  }
+
+  // 4. Password Reset (Method 1: Email Reset Link)
   Future<String?> sendPasswordResetEmail({required String email}) async {
     try {
       await _auth.sendPasswordResetEmail(email: email.trim());
@@ -88,19 +184,108 @@ class AuthService {
     } on FirebaseAuthException catch (e) {
       switch (e.code) {
         case 'user-not-found':
-          return 'No user found with this email.';
+          return 'No user found with this email address.';
         case 'invalid-email':
-          return 'Invalid email address.';
+          return 'Invalid email address format.';
         default:
           return e.message ?? 'Failed to send password reset email.';
       }
     } catch (e) {
-      return 'Unknown error occurred.';
+      return 'An unexpected error occurred.';
     }
   }
 
-  // 4. User Logout (Sign Out)
+  // 4b. Resend Email Verification (Method 1: Official Verification Link)
+  Future<String?> sendVerificationEmail() async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        await user.sendEmailVerification();
+        return null; // Sent successfully
+      }
+      return 'No active user found to verify.';
+    } on FirebaseAuthException catch (e) {
+      return e.message ?? 'Failed to send verification email.';
+    } catch (e) {
+      return 'An unexpected error occurred sending verification link.';
+    }
+  }
+
+  bool get isEmailVerified {
+    try {
+      return _auth.currentUser?.emailVerified ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  // 5. Authentic Sign in / Sign up with Google (Native Play Services + Firebase Auth)
+  Future<String?> signInWithGoogle() async {
+    try {
+      // 1. Trigger Google Play Services native Account Picker
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        // User cancelled the Google sign-in prompt
+        return null;
+      }
+
+      // 2. Obtain OAuth authentication details from Google
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      // 3. Create Firebase credential
+      final OAuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // 4. Authenticate in Firebase
+      final UserCredential userCredential = await _auth.signInWithCredential(credential);
+      final user = userCredential.user;
+
+      if (user != null) {
+        _isDemoActive = false;
+        UserService().updateProfile(
+          name: user.displayName ?? googleUser.displayName ?? 'Student',
+          email: user.email ?? googleUser.email,
+        );
+        notifyListeners();
+        return null;
+      }
+      return 'Unable to retrieve user credentials from Google.';
+    } on FirebaseAuthException catch (e) {
+      switch (e.code) {
+        case 'account-exists-with-different-credential':
+          return 'An account already exists with a different sign-in method.';
+        case 'invalid-credential':
+          return 'Invalid Google credentials provided.';
+        case 'network-request-failed':
+          return 'Network error: Please check your internet connection.';
+        default:
+          return e.message ?? 'Google authentication failed (${e.code}).';
+      }
+    } catch (e) {
+      final err = e.toString();
+      if (err.contains('canceled') || err.contains('cancelled') || err.contains('sign_in_canceled')) {
+        return null;
+      }
+      if (err.contains('10') || err.contains('DEVELOPER_ERROR')) {
+        return 'Google Sign-In configuration error: Please check Firebase Console SHA-1 fingerprint.';
+      }
+      return 'Google Sign-In error: $e';
+    }
+  }
+
+  // 6. Sign Out
   Future<void> signOut() async {
-    await _auth.signOut();
+    _isDemoActive = false;
+    try {
+      await _googleSignIn.signOut();
+    } catch (_) {}
+    try {
+      await _auth.signOut();
+    } catch (e) {
+      debugPrint('Sign out error: $e');
+    }
+    notifyListeners();
   }
 }

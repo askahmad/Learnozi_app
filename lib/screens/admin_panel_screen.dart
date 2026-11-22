@@ -77,7 +77,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'This panel is protected by profiles.role = "admin" policy (FR-11). For your FYP viva evaluation demo, tap the button below to switch to Admin mode.',
+                      'This panel is protected by Admin role policy. For your evaluation demo, tap the button below to switch to Admin mode.',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
                     ),

@@ -6,29 +6,64 @@ class UserService extends ChangeNotifier {
   factory UserService() => _instance;
   UserService._internal();
 
-  final UserProfile _currentProfile = UserProfile(
+  UserProfile _currentProfile = UserProfile(
     id: 'user_101',
     name: 'Muhammad Ahmad',
     email: 'ahmad@learnozi.pk',
-    phoneNumber: '+923306568143',
-    educationType: EducationType.school,
-    schoolGrade: '11th (FSc Part 1)',
-    schoolCourse: 'Pre-Medical',
-    universityName: 'Virtual University',
-    semester: 'Semester 4',
-    program: 'BS Computer Science',
+    phoneNumber: '',
+    educationType: EducationType.university,
+    schoolGrade: '',
+    schoolCourse: '',
+    universityName: 'Khwaja Fareed UEIT (KFUEIT), Rahim Yar Khan',
+    semester: '6th Semester',
+    program: 'BS Computer Science (BSCS)',
     role: 'student',
-    currentStreak: 3,
-    longestStreak: 7,
+    currentStreak: 1,
+    longestStreak: 1,
     lastActiveDate: DateTime.now(),
     language: 'English',
-    earnedBadges: ['first_step', 'quiz_apprentice', 'streak_starter'],
+    earnedBadges: ['first_step'],
   );
 
   UserProfile get profile => _currentProfile;
 
+  void setNewProfile({
+    required String name,
+    required String email,
+    String? phoneNumber,
+    required EducationType educationType,
+    String? schoolGrade,
+    String? schoolCourse,
+    String? universityName,
+    String? semester,
+    String? program,
+    String role = 'student',
+    String language = 'English',
+  }) {
+    _currentProfile = UserProfile(
+      id: 'user_${DateTime.now().millisecondsSinceEpoch}',
+      name: name,
+      email: email,
+      phoneNumber: phoneNumber ?? '',
+      educationType: educationType,
+      schoolGrade: schoolGrade ?? '',
+      schoolCourse: schoolCourse ?? '',
+      universityName: universityName ?? '',
+      semester: semester ?? '',
+      program: program ?? '',
+      role: role,
+      currentStreak: 1,
+      longestStreak: 1,
+      lastActiveDate: DateTime.now(),
+      language: language,
+      earnedBadges: ['first_step'],
+    );
+    notifyListeners();
+  }
+
   void updateProfile({
     String? name,
+    String? email,
     String? phoneNumber,
     EducationType? educationType,
     String? schoolGrade,
@@ -40,6 +75,7 @@ class UserService extends ChangeNotifier {
     String? language,
   }) {
     if (name != null) _currentProfile.name = name;
+    if (email != null) _currentProfile.email = email;
     if (phoneNumber != null) _currentProfile.phoneNumber = phoneNumber;
     if (educationType != null) _currentProfile.educationType = educationType;
     if (schoolGrade != null) _currentProfile.schoolGrade = schoolGrade;
