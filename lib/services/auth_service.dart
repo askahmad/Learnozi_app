@@ -276,6 +276,8 @@ class AuthService extends ChangeNotifier {
       switch (e.code) {
         case 'popup-closed-by-user':
           return null; // Silent cancel when user closes web popup
+        case 'operation-not-allowed':
+          return 'Google Sign-In is not enabled yet in Firebase Console. Go to Firebase Console > Authentication > Sign-in method and enable "Google".';
         case 'account-exists-with-different-credential':
           return 'An account already exists with a different sign-in method.';
         case 'invalid-credential':
