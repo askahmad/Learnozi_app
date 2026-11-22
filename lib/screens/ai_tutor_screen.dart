@@ -211,7 +211,7 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
             TextField(
               controller: keyController,
               decoration: InputDecoration(
-                hintText: 'AIzaSy...',
+                hintText: 'Enter your Gemini API key...',
                 hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
                 filled: true,
                 fillColor: const Color(0xFFF8FAFC),
