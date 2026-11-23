@@ -1,6 +1,9 @@
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+
+import '../config/gemini_config.dart';
 
 class ChatMessage {
   final String id;
@@ -25,19 +28,38 @@ class AiTutorService {
   factory AiTutorService() => _instance;
   AiTutorService._internal();
 
-  // Google AI Studio / Gemini API Key (Configurable via environment or settings)
-  static String apiKey = const String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
+  // Google AI Studio / Gemini API Key (Configured in background or via environment)
+  static String apiKey = GeminiConfig.apiKey.trim().isNotEmpty
+      ? GeminiConfig.apiKey.trim()
+      : const String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
 
-  static const String _model = 'gemini-1.5-flash';
+  static void setApiKey(String key) {
+    apiKey = key.trim().replaceAll('"', '').replaceAll("'", "");
+  }
+
+  static String _model = 'gemini-1.5-flash';
+
+  static void setModel(String model) {
+    _model = model.trim();
+  }
+
+  // Diagnostic tracking for live Gemini API calls
+  static String? lastApiError;
+  static int? lastStatusCode;
 
   // Feedback logging (FR-16)
   static final List<Map<String, dynamic>> feedbackLog = [];
 
-  void recordFeedback({required String messageId, required int rating, String? comment}) {
+  void recordFeedback({
+    required String messageId,
+    required int rating,
+    String? comment,
+  }) {
     feedbackLog.add({
       'messageId': messageId,
       'rating': rating, // 1 = positive, -1 = negative
-      'comment': comment ?? (rating > 0 ? 'Helpful explanation' : 'Needs more detail'),
+      'comment':
+          comment ?? (rating > 0 ? 'Helpful explanation' : 'Needs more detail'),
       'timestamp': DateTime.now(),
     });
   }
@@ -48,8 +70,10 @@ class AiTutorService {
     required String language, // "English" or "Urdu"
     String? imageBase64,
   }) async {
-    // If live API key is present, attempt live Gemini API call first
-    if (apiKey.isNotEmpty) {
+    final cleanKey = apiKey.trim().replaceAll('"', '').replaceAll("'", "");
+
+    // 1. Tier 1: Live Google Gemini API (if key is configured in GeminiConfig or environment)
+    if (cleanKey.isNotEmpty) {
       try {
         final liveResult = await _callGeminiApi(
           question: question,
@@ -61,16 +85,112 @@ class AiTutorService {
           return liveResult;
         }
       } catch (e) {
-        debugPrint('Gemini live call failed or timed out: $e. Falling back to syllabus engine.');
+        lastApiError = 'Gemini call failed: $e';
+        debugPrint(
+          'Gemini live call failed or timed out: $e. Falling back to free AI engine.',
+        );
       }
     }
 
-    // High-Yield Academic Syllabus Knowledge Engine Fallback (Guarantees 100% Viva reliability)
+    // 2. Tier 2: Free Zero-Key Open AI Engine (Answers ANY question live and free without setup)
+    try {
+      final freeAiResult = await _callFreeOpenAiApi(
+        question: question,
+        studentLevel: studentLevel,
+        language: language,
+      );
+      if (freeAiResult != null && freeAiResult.trim().isNotEmpty) {
+        return freeAiResult;
+      }
+    } catch (e) {
+      debugPrint(
+        'Free Open AI engine failed or offline: $e. Falling back to offline syllabus engine.',
+      );
+    }
+
+    // 3. Tier 3: High-Yield Academic Syllabus Knowledge Engine Fallback (Guarantees 100% Viva reliability)
     return _generateIntelligentAcademicExplanation(
       question: question,
       studentLevel: studentLevel,
       language: language,
     );
+  }
+
+  /// Free, zero-key public AI text engine (Tier 2 Fallback)
+  Future<String?> _callFreeOpenAiApi({
+    required String question,
+    required String studentLevel,
+    required String language,
+  }) async {
+    final systemPrompt = '''
+You are a friendly, encouraging, and expert AI study companion and tutor for Pakistani students (Matric, FSc, MDCAT, CSS, University).
+Target Student Level: $studentLevel.
+Answer Language: $language.
+
+Rules:
+1. If the student sends a greeting (e.g. "hi", "salam", "hello", "kese ho"), respond warmly as their Learnozi AI Study Companion and ask what topic, chapter, or question they would like help with today.
+2. For syllabus and exam questions (Theory, Math, Physics, Chemistry, Biology, Computer Science, Coding, Programming, AI):
+   a. Explain the concept step-by-step in clear, easy-to-understand terms.
+   b. Provide ONE practical, worked exam example or full runnable code snippet.
+   c. Conclude with a crisp "3-Point Revision Summary" for exam prep.
+3. If the question is in Urdu, Roman Urdu, or selected language is Urdu, respond in clear Urdu.
+4. Mobile Academic Formatting Rules:
+   - Format equations and math clearly (e.g. x = (-b ± √(b² - 4ac)) / (2a), F = m × a).
+   - Avoid raw LaTeX backslash codes.
+   - For code, format in clean markdown code blocks with the language tag (e.g. ```csharp, ```python).
+   - When writing in Urdu, maintain natural Urdu syntax. Keep English terms clean in parentheses.
+   - Use clean Markdown: "### " for section headings, "**" for bold concepts, and numbered points (1., 2., 3.).
+''';
+
+    final fullPrompt = '$systemPrompt\n\nStudent Question: $question';
+
+    // Strategy 1: URL encoded GET to free open AI endpoint (instant response, no key)
+    try {
+      final encoded = Uri.encodeComponent(fullPrompt);
+      final url = Uri.parse('https://text.pollinations.ai/$encoded');
+      final response = await http.get(url).timeout(const Duration(seconds: 12));
+      if (response.statusCode == 200) {
+        final text = response.body.trim();
+        if (text.isNotEmpty &&
+            !text.contains('<!DOCTYPE html>') &&
+            !text.startsWith('Error:') &&
+            !text.startsWith('{"status":400')) {
+          return text;
+        }
+      }
+    } catch (e) {
+      debugPrint('Free AI API Strategy 1 failed: $e. Trying Strategy 2.');
+    }
+
+    // Strategy 2: JSON POST with OpenAI compatibility schema
+    try {
+      final url = Uri.parse('https://text.pollinations.ai/');
+      final response = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'messages': [
+                {'role': 'system', 'content': systemPrompt},
+                {'role': 'user', 'content': question},
+              ],
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+
+      if (response.statusCode == 200) {
+        final text = response.body.trim();
+        if (text.isNotEmpty &&
+            !text.contains('<!DOCTYPE html>') &&
+            !text.startsWith('{"status":400')) {
+          return text;
+        }
+      }
+    } catch (e) {
+      debugPrint('Free AI API Strategy 2 failed: $e');
+    }
+
+    return null;
   }
 
   Future<String?> _callGeminiApi({
@@ -79,73 +199,106 @@ class AiTutorService {
     required String language,
     String? imageBase64,
   }) async {
-    final url = Uri.parse(
-      'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent?key=$apiKey',
-    );
+    final cleanKey = apiKey.trim().replaceAll('"', '').replaceAll("'", "");
+    if (cleanKey.isEmpty) {
+      lastApiError = 'No API key configured';
+      return null;
+    }
 
-    final systemInstruction = '''
+    final systemInstruction =
+        '''
 You are a friendly, encouraging, and expert AI study companion and tutor for Pakistani students (Matric, FSc, MDCAT, CSS, University).
 Target Student Level: $studentLevel.
 Answer Language: $language.
 
 Rules:
 1. If the student sends a greeting (e.g. "hi", "salam", "hello", "kese ho"), respond warmly as their Learnozi AI Study Companion and ask what topic, chapter, or question they would like help with today.
-2. For syllabus and exam questions:
+2. For syllabus and exam questions (Theory, Math, Physics, Chemistry, Biology, Computer Science, Coding, Programming, AI):
    a. Explain the concept step-by-step in clear, easy-to-understand terms.
-   b. Provide ONE practical, worked exam example or code snippet.
+   b. Provide ONE practical, worked exam example or full runnable code snippet.
    c. Conclude with a crisp "3-Point Revision Summary" for exam prep.
 3. If the question is in Urdu, Roman Urdu, or selected language is Urdu, respond in clear Urdu.
 4. Mobile Academic Formatting Rules:
    - Format equations and math clearly using clean, readable notation (e.g., x = (-b ± √(b² - 4ac)) / (2a), ax² + bx + c = 0, a ≠ 0, F = m × a).
    - Avoid raw LaTeX backslash codes (like \\frac, \\sqrt, \\pm, \\neq) or raw \$...\$ / \$\$...\$\$ blocks that are unreadable on mobile screens.
    - Place mathematical formulas on their own dedicated lines so they stand out cleanly.
-   - When writing in Urdu, maintain natural Urdu syntax. Keep English terms clean in parentheses (e.g. "دو درجی فارمولا (Quadratic Formula)").
+   - For code, format in clean markdown code blocks with the language tag (e.g. ```csharp, ```python).
+   - When writing in Urdu, maintain natural Urdu syntax. Keep English terms clean in parentheses (e.g. "مصنوعی ذہانت (Artificial Intelligence)").
    - Use clean Markdown: "### " for section headings, "**" for bold concepts, and numbered points (1., 2., 3.).
 ''';
 
-    final parts = <Map<String, dynamic>>[];
-    parts.add({'text': '$systemInstruction\n\nStudent Question: $question'});
+    final userParts = <Map<String, dynamic>>[];
+    userParts.add({
+      'text': '$systemInstruction\n\nStudent Question: $question',
+    });
 
     if (imageBase64 != null && imageBase64.isNotEmpty) {
-      parts.add({
-        'inline_data': {
-          'mime_type': 'image/jpeg',
-          'data': imageBase64,
-        }
+      userParts.add({
+        'inlineData': {'mimeType': 'image/jpeg', 'data': imageBase64},
       });
     }
 
-    final response = await http
-        .post(
-          url,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'contents': [
-              {'parts': parts}
-            ],
-            'generationConfig': {
-              'temperature': 0.7,
-              'maxOutputTokens': 1500,
-            },
-          }),
-        )
-        .timeout(const Duration(seconds: 30));
+    final requestBody = jsonEncode({
+      'contents': [
+        {
+          'role': 'user',
+          'parts': userParts,
+        }
+      ],
+      'generationConfig': {
+        'temperature': 0.7,
+        'maxOutputTokens': 1500,
+      },
+    });
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final candidates = data['candidates'] as List?;
-      if (candidates != null && candidates.isNotEmpty) {
-        final content = candidates[0]['content'];
-        final partsList = content?['parts'] as List?;
-        if (partsList != null && partsList.isNotEmpty) {
-          final text = partsList[0]['text'] as String?;
-          if (text != null && text.trim().isNotEmpty) {
-            return text;
+    final candidateModels = [_model, 'gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+    final modelsToTry = <String>[];
+    for (final m in candidateModels) {
+      if (!modelsToTry.contains(m)) modelsToTry.add(m);
+    }
+
+    for (final modelName in modelsToTry) {
+      final url = Uri.parse(
+        'https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$cleanKey',
+      );
+
+      try {
+        final response = await http
+            .post(
+              url,
+              headers: {'Content-Type': 'application/json'},
+              body: requestBody,
+            )
+            .timeout(const Duration(seconds: 15));
+
+        lastStatusCode = response.statusCode;
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final candidates = data['candidates'] as List?;
+          if (candidates != null && candidates.isNotEmpty) {
+            final content = candidates[0]['content'];
+            final partsList = content?['parts'] as List?;
+            if (partsList != null && partsList.isNotEmpty) {
+              final text = partsList[0]['text'] as String?;
+              if (text != null && text.trim().isNotEmpty) {
+                lastApiError = null;
+                _model = modelName;
+                return text;
+              }
+            }
+          }
+        } else {
+          lastApiError = 'Model $modelName HTTP ${response.statusCode}: ${response.body}';
+          debugPrint('Gemini API Error ($modelName): Status ${response.statusCode} - ${response.body}');
+          if (response.statusCode == 404) {
+            continue; // Try fallback model
           }
         }
+      } catch (e) {
+        lastApiError = 'Model $modelName Exception: $e';
+        debugPrint('Gemini API Exception ($modelName): $e');
       }
-    } else {
-      debugPrint('Gemini API Error: Status ${response.statusCode} - ${response.body}');
     }
     return null;
   }
@@ -157,7 +310,8 @@ Rules:
     required String language,
   }) {
     final q = question.toLowerCase();
-    final bool isUrdu = language == 'Urdu' || RegExp(r'[\u0600-\u06FF]').hasMatch(question);
+    final bool isUrdu =
+        language == 'Urdu' || RegExp(r'[\u0600-\u06FF]').hasMatch(question);
 
     // Greetings & Casual check
     final trimmed = q.trim();
@@ -191,8 +345,186 @@ What subject or topic are you studying today? Feel free to ask any question!
       }
     }
 
+    // 00. Artificial Intelligence (AI), Machine Learning & Data Science Engine
+    final bool isAiRequest = RegExp(
+      r'\b(ai|artificial intelligence|machine learning|ml|deep learning|neural network|neural networks|nlp|natural language processing|computer vision|llm|chatgpt|expert system|generative ai)\b',
+    ).hasMatch(q);
+
+    if (isAiRequest) {
+      if (isUrdu) {
+        return '''
+🎓 **مصنوعی ذہانت (Artificial Intelligence - AI) کی جامع امتحانی گائیڈ**
+(نصاب: $studentLevel)
+
+📌 **مرحلہ وار مفہوم اور بنیادی اقسام:**
+1. **تعریف:** مصنوعی ذہانت (AI) کمپیوٹر سائنس کا وہ جدید شعبہ ہے جس کا مقصد ایسے ذہین کمپیوٹر سسٹمز بنانا ہے جو انسانی عقل کی طرح سوچنے، سیکھنے اور مسائل حل کرنے کی صلاحیت رکھتے ہوں (جیسے بصری شناخت، زبان کا فہم، اور خودکار فیصلے)۔
+2. **بنیادی درجہ بندی:**
+   - **محدود اے آئی (Narrow / Weak AI):** کسی ایک مخصوص کام کے لیے تربیت یافتہ (مثلاً چیٹ بوٹس، گوگل سرچ، فیس بک ریکمنڈیشن، سیری)۔
+   - **عمومی اے آئی (General / Strong AI - AGI):** وہ مستقبل کی اے آئی جو انسانی سطح پر مختلف شعبوں میں خود مختار سوچ اور فہم رکھتی ہو۔
+   - **سپر اے آئی (Super AI - ASI):** انسانی ذہانت سے بھی برتر متوقع نظام۔
+3. **اے آئی، مشین لرننگ، اور ڈیپ لرننگ کا باہمی تعلق:**
+   - **Artificial Intelligence:** سب سے وسیع چھتری ہے۔
+   - **Machine Learning (ML):** وہ طریقہ کار جس میں کمپیوٹر ڈیٹا سے خود پیٹرن سیکھتا ہے (Supervised, Unsupervised, Reinforcement)۔
+   - **Deep Learning (DL):** انسانی دماغ کی طرح کثیر پرتوں والے نیورل نیٹ ورکس (Neural Networks)۔
+
+💡 **امتحانی عملی مثال (Supervised Learning):**
+طالب علم کے مطالعہ کے اوقات اور امتحان پاس کرنے کے امکان کی پیشن گوئی:
+```python
+# Simple AI Classification using Python (Scikit-Learn)
+from sklearn.linear_model import LogisticRegression
+import numpy as np
+
+# [مطالعہ کے گھنٹے, سابقہ اسکور]
+X = np.array([[1, 40], [2, 50], [5, 75], [8, 90]])
+y = np.array([0, 0, 1, 1])  # 0 = Fail, 1 = Pass
+
+model = LogisticRegression()
+model.fit(X, y)
+
+# 6 گھنٹے پڑھائی پر پیشن گوئی
+pred = model.predict([[6, 80]])
+print("نتیجہ (1 = Pass, 0 = Fail):", pred[0])
+```
+
+🎯 **امتحان کی تیاری کے لیے 3 نکاتی خلاصہ:**
+1. ٹورنگ ٹیسٹ (Turing Test - 1950) مشین کی ذہانت جانچنے کا بنیادی تاریخی پیمانہ ہے۔
+2. روایتی پروگرامنگ (Rules + Data = Output) جبکہ مشین لرننگ (Data + Output = Rules) پر استوار ہے۔
+3. اوور فٹنگ (Overfitting) اور الگورتھمک بائیس (Bias) امتحانات کے اہم ترین تکنیکی موضوعات ہیں۔
+''';
+      } else {
+        return '''
+🎓 **Artificial Intelligence (AI) - Comprehensive Academic Overview**
+(Target Curriculum: $studentLevel)
+
+📌 **Step 1: Core Definition & Foundations**
+1. **Definition:** Artificial Intelligence (AI) is a subfield of Computer Science dedicated to creating systems capable of performing tasks that traditionally require human intelligence, including visual perception, speech recognition, decision-making, and contextual problem-solving. (Term coined by John McCarthy in 1956).
+2. **Key Classifications of AI:**
+   - **Narrow / Weak AI (ANI):** Specialized in executing a single, predefined task (e.g., Apple Siri, recommendation engines, autonomous driving subsystems, medical image diagnostic models). All existing modern AI is Narrow AI.
+   - **General / Strong AI (AGI):** Hypothetical machines that possess human-level cognitive flexibility to understand, reason, and learn across any intellectual domain.
+   - **Artificial Superintelligence (ASI):** A theoretical state where machine cognitive capabilities surpass all collective human intellect.
+3. **The AI Hierarchy & Architecture:**
+   **Artificial Intelligence** ⊃ **Machine Learning (ML)** ⊃ **Deep Learning (DL)**
+   - **Machine Learning:** Statistical algorithms that optimize model weights from experience/data rather than explicit rule programming (Supervised, Unsupervised, Reinforcement Learning).
+   - **Deep Learning:** Multi-layered Artificial Neural Networks (ANN, CNN for images, RNN/Transformers for NLP) capable of automatic hierarchical feature extraction from raw unstructured data.
+
+💡 **Practical Exam Worked Example & Implementation:**
+A cornerstone exam topic is Supervised Machine Learning classification:
+```python
+# Machine Learning: Binary Classification using Logistic Regression
+from sklearn.linear_model import LogisticRegression
+import numpy as np
+
+# Features: [Daily Study Hours, Attendance Percentage]
+X = np.array([[1, 50], [2, 60], [4, 75], [6, 85], [8, 95]])
+y = np.array([0, 0, 1, 1, 1])  # Labels: 0 = At Risk, 1 = Cleared
+
+model = LogisticRegression()
+model.fit(X, y)
+
+# Predict for a student with 5 study hours and 80% attendance
+test_student = np.array([[5, 80]])
+result = model.predict(test_student)
+print("Exam Prediction (1=Cleared, 0=At Risk):", result[0])
+```
+
+🎯 **3-Point Revision Summary for Exam Prep:**
+1. **The Turing Test (Alan Turing, 1950):** The foundational benchmark where an interrogator cannot distinguish machine responses from human responses.
+2. **Core Paradigm Shift:** Traditional Software = `Rules + Data → Output`; Machine Learning = `Data + Output → Rules (Model)`.
+3. **Critical Exam Concepts:** Overfitting (memorizing noise) vs Underfitting (too simple), Cost Function optimization (Gradient Descent), and Ethical AI (Bias & Fairness).
+''';
+      }
+    }
+
+    // 00b. Database Management Systems (DBMS) & SQL Engine
+    final bool isDbRequest = RegExp(
+      r'\b(dbms|database|sql|normalization|acid|relational|primary key|foreign key|rdbms|nosql)\b',
+    ).hasMatch(q);
+    if (isDbRequest) {
+      return '''
+🎓 **Database Management Systems (DBMS) & Relational Foundations**
+(Target Curriculum: $studentLevel)
+
+📌 **Step 1: Core Theoretical Principles**
+1. **Relational Model & Keys:**
+   - **Primary Key (PK):** A unique, non-null attribute identifying each record in a relation.
+   - **Foreign Key (FK):** An attribute in one table referencing the Primary Key of another table, enforcing **Referential Integrity**.
+2. **ACID Properties of Transactions:**
+   - **Atomicity:** All operations within a transaction execute successfully, or none do (All-or-Nothing).
+   - **Consistency:** Transactions move the database from one valid state to another, maintaining all schema constraints.
+   - **Isolation:** Concurrent transaction executions yield the same state as serial execution.
+   - **Durability:** Committed changes persist permanently even in system crashes.
+3. **Database Normalization:**
+   - **1NF:** Atomic attribute values; eliminates repeating groups.
+   - **2NF:** In 1NF and removes partial dependency (all non-key attributes fully depend on candidate keys).
+   - **3NF:** In 2NF and removes transitive dependency (non-key attributes do not depend on other non-key attributes).
+
+💻 **Step 2: Practical SQL Schema & Query Example**
+```sql
+-- Creating normalized Student and Enrollment tables
+CREATE TABLE Students (
+    StudentID INT PRIMARY KEY,
+    FullName VARCHAR(100) NOT NULL,
+    Semester INT CHECK (Semester BETWEEN 1 AND 8)
+);
+
+CREATE TABLE Enrollments (
+    EnrollmentID INT PRIMARY KEY,
+    StudentID INT,
+    CourseCode VARCHAR(10),
+    FOREIGN KEY (StudentID) REFERENCES Students(StudentID) ON DELETE CASCADE
+);
+
+-- Query with INNER JOIN
+SELECT S.FullName, E.CourseCode
+FROM Students S
+INNER JOIN Enrollments E ON S.StudentID = E.StudentID
+WHERE S.Semester >= 6;
+```
+
+🎯 **3-Point Revision Summary for Exam Prep:**
+1. **Normalization vs Denormalization:** Normalization eliminates update/insert/delete anomalies; Denormalization optimizes read latency in data warehouses.
+2. **Indexing:** A table can have 1 Clustered Index (physical disk order) and multiple Non-Clustered Indexes (B-tree pointers).
+3. **SQL DDL vs DML:** DDL (`CREATE`, `ALTER`, `DROP`) changes structure; DML (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) manipulates data.
+''';
+    }
+
+    // 00c. Operating Systems (OS) Engine
+    final bool isOsRequest = RegExp(
+      r'\b(operating system|deadlock|process|thread|cpu scheduling|paging|virtual memory|semaphore)\b',
+    ).hasMatch(q);
+    if (isOsRequest) {
+      return '''
+🎓 **Operating Systems Concepts & Process Management**
+(Target Curriculum: $studentLevel)
+
+📌 **Step 1: Step-by-Step Conceptual Breakdown**
+1. **Processes vs Threads:**
+   - **Process:** An independent program in execution with separate memory space, open file descriptors, and PCB (Process Control Block).
+   - **Thread:** A lightweight dispatch unit sharing the process's code, data, and heap, but having its own private stack and registers.
+2. **CPU Scheduling Algorithms:**
+   - **FCFS (First-Come First-Served):** Non-preemptive; susceptible to the *Convoy Effect*.
+   - **SJF / SRTF (Shortest Job First):** Optimal for minimizing Average Waiting Time.
+   - **Round Robin (RR):** Preemptive scheduling using a fixed time slice (quantum); crucial for interactive systems.
+3. **Deadlock Conditions (Coffman's 4 Necessary Conditions):**
+   - **Mutual Exclusion:** Non-shareable resource allocation.
+   - **Hold and Wait:** Process holding resources requests additional ones.
+   - **No Preemption:** Resources can only be released voluntarily.
+   - **Circular Wait:** Closed cycle of processes waiting on one another.
+
+💡 **Practical Exam Scenario (Banker's Algorithm & Safe State):**
+Total Resources = 10 units. Allocation = {P1: 3, P2: 2, P3: 2}. Total Allocated = 7 → Available = 10 - 7 = 3 units.
+Any process with `Need <= Available` can execute, release its allocated units, and keep the system in a safe sequence.
+
+🎯 **3-Point Revision Summary for Exam Prep:**
+1. **Deadlock Strategies:** Prevention (break 1 of 4 conditions), Avoidance (Banker's algorithm), Detection & Recovery, or Ignorance.
+2. **Thrashing:** System spends more time paging (swapping pages) than executing instructions due to insufficient frame allocation.
+3. **Context Switch:** The state save and reload overhead incurred by the CPU when switching execution between processes.
+''';
+    }
+
     // 0. Computer Science & Programming Engine (C#, C++, Python, Java, SQL, OOP, Loops, Tables)
-    final bool isCodeRequest = q.contains('program') ||
+    final bool isCodeRequest =
+        q.contains('program') ||
         q.contains('code') ||
         q.contains('c#') ||
         q.contains('csharp') ||
@@ -229,7 +561,11 @@ What subject or topic are you studying today? Feel free to ask any question!
         final bool isPython = q.contains('python');
         final bool isCpp = q.contains('c++') || q.contains('cpp');
         final bool isJava = q.contains('java') && !q.contains('javascript');
-        final bool isCsharp = q.contains('c#') || q.contains('csharp') || q.contains('c sharp') || (!isPython && !isCpp && !isJava);
+        final bool isCsharp =
+            q.contains('c#') ||
+            q.contains('csharp') ||
+            q.contains('c sharp') ||
+            (!isPython && !isCpp && !isJava);
 
         if (isCsharp) {
           return '''
@@ -387,7 +723,11 @@ int main() {
       }
 
       // 0b. Object-Oriented Programming (OOP)
-      if (q.contains('oop') || q.contains('inheritance') || q.contains('polymorphism') || q.contains('encapsulation') || q.contains('abstraction')) {
+      if (q.contains('oop') ||
+          q.contains('inheritance') ||
+          q.contains('polymorphism') ||
+          q.contains('encapsulation') ||
+          q.contains('abstraction')) {
         return '''
 🎓 **Object-Oriented Programming (OOP) Principles & C# Implementation**
 (Target Curriculum: $studentLevel)
@@ -445,7 +785,9 @@ namespace OOPDemo
       }
 
       // 0c. General Programming / Coding Problem Solver
-      final String codeLang = q.contains('python') ? 'Python' : (q.contains('c++') ? 'C++' : 'C#');
+      final String codeLang = q.contains('python')
+          ? 'Python'
+          : (q.contains('c++') ? 'C++' : 'C#');
       return '''
 🎓 **$codeLang Programming Solution & Algorithm Breakdown**
 (Target Curriculum: $studentLevel | Question: "$question")
@@ -488,7 +830,9 @@ namespace LearnoziSolution
     }
 
     // 1. Newton's Laws / Mechanics
-    if (q.contains('newton') || q.contains('law of motion') || (q.contains('force') && q.contains('mass'))) {
+    if (q.contains('newton') ||
+        q.contains('law of motion') ||
+        (q.contains('force') && q.contains('mass'))) {
       if (isUrdu) {
         return '''
 🎓 **نیوٹن کے حرکت کے قوانین کی تفصیلی وضاحت**
@@ -536,7 +880,9 @@ Question: A force of 25 N acts on a cart of mass 5 kg initially at rest on a fri
     }
 
     // 2. Mitosis vs Meiosis / Biology
-    if (q.contains('mitosis') || q.contains('meiosis') || q.contains('cell division')) {
+    if (q.contains('mitosis') ||
+        q.contains('meiosis') ||
+        q.contains('cell division')) {
       if (isUrdu) {
         return '''
 🎓 **مائیٹوسس اور میوسس میں واضح فرق**
@@ -586,7 +932,10 @@ Scenario: A human cell with 46 chromosomes (2n) undergoes cell division.
     }
 
     // 3. DNA Structure & Molecular Genetics
-    if (q.contains('dna') || q.contains('rna') || q.contains('nucleotide') || q.contains('genetic')) {
+    if (q.contains('dna') ||
+        q.contains('rna') ||
+        q.contains('nucleotide') ||
+        q.contains('genetic')) {
       return '''
 🎓 **Molecular Structure of DNA (Watson-Crick Model)**
 (Target Curriculum: $studentLevel)
@@ -617,7 +966,12 @@ Problem: If a double-stranded DNA sample contains 28% Cytosine (C), calculate th
     }
 
     // 4. Data Structures / Binary Trees / Computer Science
-    if (q.contains('tree') || q.contains('binary search') || q.contains('bst') || q.contains('data structure') || q.contains('stack') || q.contains('queue')) {
+    if (q.contains('tree') ||
+        q.contains('binary search') ||
+        q.contains('bst') ||
+        q.contains('data structure') ||
+        q.contains('stack') ||
+        q.contains('queue')) {
       return '''
 🎓 **Binary Search Trees (BST) & Data Structures**
 (Target Curriculum: $studentLevel)
@@ -651,7 +1005,11 @@ Inorder Traversal Output: 20, 30, 40, 50, 70 (Sorted!).
     }
 
     // 5. Quadratic Equations / Mathematics
-    if (q.contains('quadratic') || q.contains('factorization') || q.contains('algebra') || q.contains('matrix') || q.contains('derivative')) {
+    if (q.contains('quadratic') ||
+        q.contains('factorization') ||
+        q.contains('algebra') ||
+        q.contains('matrix') ||
+        q.contains('derivative')) {
       return '''
 🎓 **Quadratic Equations & Roots Diagnostic**
 (Target Curriculum: $studentLevel)

@@ -1,0 +1,7 @@
+// Example template for background Gemini API configuration.
+// Copy this file to lib/config/gemini_config.dart and add your API key.
+// lib/config/gemini_config.dart is in .gitignore so your key will not be published.
+
+class GeminiConfig {
+  static const String apiKey = '';
+}

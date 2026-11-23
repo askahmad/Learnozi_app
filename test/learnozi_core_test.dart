@@ -184,6 +184,46 @@ void main() {
       expect(explanation, contains('5 x'));
       expect(explanation, contains('for (int i = 1; i <= 10; i++)'));
     });
+
+    test('Generates comprehensive academic explanation for Artificial Intelligence (AI) query', () async {
+      final tutor = AiTutorService();
+      final explanation = await tutor.askTutor(
+        question: "what is ai",
+        studentLevel: "BS Computer Science (BSCS) - 6th Semester",
+        language: "English",
+      );
+
+      expect(explanation.isNotEmpty, isTrue);
+      expect(explanation.toLowerCase(), contains('artificial intelligence'));
+      expect(explanation.toLowerCase(), anyOf(contains('narrow'), contains('machine learning')));
+      expect(explanation, contains('3-Point Revision Summary'));
+    });
+
+    test('Generates comprehensive academic explanation for DBMS / SQL query', () async {
+      final tutor = AiTutorService();
+      final explanation = await tutor.askTutor(
+        question: "what is database normalization and acid properties",
+        studentLevel: "BS Computer Science",
+        language: "English",
+      );
+
+      expect(explanation.isNotEmpty, isTrue);
+      expect(explanation, contains('ACID'));
+      expect(explanation, contains('Normalization'));
+      expect(explanation, contains('CREATE TABLE'));
+    });
+
+    test('Multi-tier AI fallback handles general questions gracefully', () async {
+      final tutor = AiTutorService();
+      final explanation = await tutor.askTutor(
+        question: "Explain what is recursion in programming",
+        studentLevel: "BS Computer Science",
+        language: "English",
+      );
+
+      expect(explanation.isNotEmpty, isTrue);
+      expect(explanation.toLowerCase(), anyOf(contains('recursion'), contains('function'), contains('base case')));
+    });
   });
 
   group('FR-03: Document Upload & Grounded Chat', () {

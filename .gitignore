@@ -50,3 +50,7 @@ app.*.map.json
 # Firebase & Google Credentials
 android/app/google-services.json
 lib/firebase_options.dart
+
+# Local API Keys & Background Secrets (Never committed to GitHub)
+lib/config/gemini_config.dart
+

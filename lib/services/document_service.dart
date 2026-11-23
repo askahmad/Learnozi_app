@@ -125,7 +125,7 @@ Physics Class 11 - Chapter 5: Rotational and Circular Motion.
 
     if (apiKey.isNotEmpty) {
       final url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=$apiKey',
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey',
       );
 
       final List<Map<String, dynamic>> parts = [];
@@ -202,7 +202,7 @@ $docText
         }
       }
     } else {
-      summary = 'Document processed. (To generate AI-powered summaries, ensure your Gemini API Key is entered in settings).';
+      summary = 'Document processed and indexed for exam preparation.';
       if (docText.trim().isNotEmpty) {
         keyPoints = docText.split('\n').where((l) => l.trim().length > 10).take(4).toList();
       } else {
@@ -254,7 +254,7 @@ $docText
     final apiKey = AiTutorService.apiKey;
     if (apiKey.isNotEmpty) {
       final url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=$apiKey',
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey',
       );
 
       final List<Map<String, dynamic>> parts = [];
@@ -322,7 +322,33 @@ Question: $question
           return answer;
         }
       } catch (e) {
-        debugPrint('Live Gemini doc chat failed: $e. Falling back to grounded contextual extractor.');
+        debugPrint('Live Gemini doc chat failed: $e. Falling back to free AI engine.');
+      }
+    }
+
+    // Free Open AI Engine Grounded Q&A Fallback (Tier 2)
+    if (doc.content.trim().isNotEmpty) {
+      try {
+        final snippet = doc.content.length > 2000 ? doc.content.substring(0, 2000) : doc.content;
+        final prompt = '''
+You are an academic document tutor. Answer the student's question based strictly on this document excerpt:
+"""
+$snippet
+"""
+Question: $question
+Language: $language
+Format code and formulas cleanly if applicable.
+''';
+        final encoded = Uri.encodeComponent(prompt);
+        final res = await http.get(Uri.parse('https://text.pollinations.ai/$encoded')).timeout(const Duration(seconds: 12));
+        if (res.statusCode == 200 && res.body.trim().isNotEmpty && !res.body.contains('<!DOCTYPE html>')) {
+          final liveAnswer = res.body.trim();
+          QuotaService().consumeAiRequest();
+          _appendChatMessage(docIndex, question, liveAnswer, snippet.length);
+          return liveAnswer;
+        }
+      } catch (e) {
+        debugPrint('Free AI doc chat failed: $e. Falling back to local extractor.');
       }
     }
 
