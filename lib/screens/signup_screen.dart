@@ -286,7 +286,11 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-  void _showCustomSnackBar({required String message, required bool isError}) {
+  void _showCustomSnackBar({
+    required String message,
+    required bool isError,
+    SnackBarAction? action,
+  }) {
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -306,6 +310,7 @@ class _SignupScreenState extends State<SignupScreen> {
             ),
           ],
         ),
+        action: action,
         backgroundColor: isError ? const Color(0xFFEF4444) : const Color(0xFF10B981),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1191,7 +1196,26 @@ class _SignupScreenState extends State<SignupScreen> {
       final error = await _authService.signInWithGoogle();
       if (!mounted) return;
       if (error != null) {
-        _showCustomSnackBar(message: error, isError: true);
+        final isConfigOrPlatformIssue = error.contains('Firebase') ||
+            error.contains('disabled') ||
+            error.contains('Desktop') ||
+            error.contains('not enabled');
+        _showCustomSnackBar(
+          message: error,
+          isError: true,
+          action: isConfigOrPlatformIssue
+              ? SnackBarAction(
+                  label: 'Demo Mode',
+                  textColor: Colors.amberAccent,
+                  onPressed: () {
+                    _authService.loginAsDemoStudent();
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    }
+                  },
+                )
+              : null,
+        );
       } else {
         if (Navigator.of(context).canPop()) {
           Navigator.of(context).pop();

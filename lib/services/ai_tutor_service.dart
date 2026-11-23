@@ -4,6 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/gemini_config.dart';
+import '../models/quiz_model.dart';
+import '../models/user_profile.dart';
+import 'adaptive_service.dart';
+import 'user_service.dart';
 
 class ChatMessage {
   final String id;
@@ -66,19 +70,30 @@ class AiTutorService {
 
   Future<String> askTutor({
     required String question,
-    required String studentLevel, // e.g. "FSc Part 1 / Medical"
+    required String studentLevel, // e.g. "FSc Part 1 / Medical" or full academic level
     required String language, // "English" or "Urdu"
+    UserProfile? profile,
+    List<TopicPerformance>? weakTopics,
     String? imageBase64,
   }) async {
+    final activeProfile = profile ?? UserService().profile;
+    final activeWeakTopics = weakTopics ?? AdaptiveService().weakTopics;
+    final activeLevel = studentLevel.isNotEmpty ? studentLevel : activeProfile.academicLevelString;
     final cleanKey = apiKey.trim().replaceAll('"', '').replaceAll("'", "");
+
+    final personalizedPrompt = _buildPersonalizedAcademicPrompt(
+      profile: activeProfile,
+      weakTopics: activeWeakTopics,
+      studentLevel: activeLevel,
+      language: language,
+    );
 
     // 1. Tier 1: Live Google Gemini API (if key is configured in GeminiConfig or environment)
     if (cleanKey.isNotEmpty) {
       try {
         final liveResult = await _callGeminiApi(
           question: question,
-          studentLevel: studentLevel,
-          language: language,
+          systemInstruction: personalizedPrompt,
           imageBase64: imageBase64,
         );
         if (liveResult != null && liveResult.trim().isNotEmpty) {
@@ -96,8 +111,7 @@ class AiTutorService {
     try {
       final freeAiResult = await _callFreeOpenAiApi(
         question: question,
-        studentLevel: studentLevel,
-        language: language,
+        systemInstruction: personalizedPrompt,
       );
       if (freeAiResult != null && freeAiResult.trim().isNotEmpty) {
         return freeAiResult;
@@ -111,83 +125,192 @@ class AiTutorService {
     // 3. Tier 3: High-Yield Academic Syllabus Knowledge Engine Fallback (Guarantees 100% Viva reliability)
     return _generateIntelligentAcademicExplanation(
       question: question,
-      studentLevel: studentLevel,
+      studentLevel: activeLevel,
       language: language,
+      profile: activeProfile,
     );
+  }
+
+  /// Constructs a personalized, department-tailored, and adaptive pedagogical system instruction.
+  String _buildPersonalizedAcademicPrompt({
+    required UserProfile profile,
+    required List<TopicPerformance> weakTopics,
+    required String studentLevel,
+    required String language,
+  }) {
+    final buffer = StringBuffer();
+    buffer.writeln('You are the Learnozi AI Study Companion & Specialized Academic Tutor.');
+    buffer.writeln('Answer Language: $language.');
+    buffer.writeln('\n=== STUDENT ACADEMIC PROFILE & DEPARTMENT ===');
+    buffer.writeln('Name: ${profile.name.isNotEmpty ? profile.name : "Student"}');
+    buffer.writeln('Education Tier: ${profile.educationType == EducationType.university ? "University Degree Program" : "School / College (Intermediate)"}');
+
+    if (profile.educationType == EducationType.university) {
+      buffer.writeln('University: ${profile.universityName}');
+      buffer.writeln('Degree Program / Discipline: ${profile.program}');
+      buffer.writeln('Current Semester: ${profile.semester}');
+    } else {
+      buffer.writeln('Class / Grade: ${profile.schoolGrade}');
+      buffer.writeln('Academic Stream / Group: ${profile.schoolCourse}');
+    }
+    buffer.writeln('Full Curriculum Descriptor: $studentLevel');
+
+    if (weakTopics.isNotEmpty) {
+      final weakList = weakTopics.map((w) => '${w.subject}: ${w.topic} (${(w.accuracy * 100).toInt()}% accuracy)').join(', ');
+      buffer.writeln('Diagnosed Weak Topics from Adaptive Engine: $weakList');
+    }
+
+    buffer.writeln('\n=== STRICT PEDAGOGICAL CALIBRATION INSTRUCTIONS ===');
+    buffer.writeln('CRITICAL: DO NOT give generic or random chatbot responses like standard ChatGPT. Your answer must strictly align with the student\'s exact discipline, department, and semester level:');
+
+    if (profile.educationType == EducationType.school) {
+      if (profile.schoolGrade.contains('9th') || profile.schoolGrade.contains('10th') || profile.schoolGrade.contains('Matric')) {
+        buffer.writeln('- TARGET: Pakistani Secondary School Certificate (Matric 9th/10th Board Exams - FBISE / Punjab / Sindh / KPK / Balochistan).');
+        buffer.writeln('- DEPTH & TONE: Keep concepts foundational, intuitive, and textbook-oriented. Use clear everyday analogies.');
+        buffer.writeln('- EXAM FORMAT: Structure for 2-3 mark Short Questions and 5-mark Long Questions with labeled points. Avoid advanced calculus or college-level terminology.');
+      } else {
+        buffer.writeln('- TARGET: Intermediate / Higher Secondary (FSc Pre-Medical, FSc Pre-Engineering, ICS, I.Com, FA).');
+        buffer.writeln('- DEPTH & TONE: Emphasize board exam definitions, precise SI units, dimensional formulas, and structured derivations.');
+        if (profile.schoolCourse.toLowerCase().contains('medical')) {
+          buffer.writeln('- MEDICAL STREAM: Emphasize physiological mechanisms, cellular structures, biological terminology, and high-yield MDCAT entry test points.');
+        } else if (profile.schoolCourse.toLowerCase().contains('engineering')) {
+          buffer.writeln('- ENGINEERING STREAM: Emphasize vector calculus, physics free-body diagrams, mathematical proofs, and ECAT formulas.');
+        } else if (profile.schoolCourse.toLowerCase().contains('ics') || profile.schoolCourse.toLowerCase().contains('computer')) {
+          buffer.writeln('- ICS STREAM: Emphasize C/C++ language loops, arrays, pointers, data types, and Board exam programming questions.');
+        } else if (profile.schoolCourse.toLowerCase().contains('commerce') || profile.schoolCourse.toLowerCase().contains('i.com')) {
+          buffer.writeln('- COMMERCE STREAM: Emphasize double-entry bookkeeping, debit & credit rules, journal to ledger, and financial statements.');
+        }
+      }
+    } else {
+      // University
+      buffer.writeln('- TARGET: Higher Education / University Level at ${profile.universityName} (${profile.program}, ${profile.semester}).');
+      buffer.writeln('- DEPTH & TONE: Professional academic rigor. Use precise industry terminology, theoretical foundations, and university examination standards.');
+
+      final prog = profile.program.toLowerCase();
+      if (prog.contains('computer') || prog.contains('software') || prog.contains('artificial intelligence') || prog.contains('data science') || prog.contains('it')) {
+        buffer.writeln('- CS/SE/IT DISCIPLINE: Provide production-quality, runnable code (C#, Python, C++, Java, or SQL) with proper syntax highlighting.');
+        buffer.writeln('- Explain algorithm logic, state Big-O Time & Space Complexity explicitly, and discuss edge cases.');
+        buffer.writeln('- Address relevant university topics (OOP, Data Structures, Operating Systems, DBMS/SQL, Computer Networks, Software Architecture).');
+      } else if (prog.contains('business') || prog.contains('bba') || prog.contains('accounting') || prog.contains('finance') || prog.contains('economics')) {
+        buffer.writeln('- BUSINESS/MANAGEMENT: Analyze using formal frameworks (SWOT, 4Ps, Porter\'s Five Forces, Accounting Equations, Financial Ratios).');
+      } else if (prog.contains('medical') || prog.contains('mbbs') || prog.contains('pharm') || prog.contains('dpt')) {
+        buffer.writeln('- MEDICAL/HEALTH SCIENCES: Address anatomy, pathophysiology, clinical presentation, pharmacodynamics, and differential diagnoses.');
+      } else if (prog.contains('engineering') || prog.contains('mechanical') || prog.contains('electrical') || prog.contains('civil')) {
+        buffer.writeln('- ENGINEERING DISCIPLINE: State governing differential equations, boundary conditions, free-body diagrams, and step-by-step engineering calculations with units.');
+      } else if (prog.contains('law') || prog.contains('llb')) {
+        buffer.writeln('- LAW/LEGAL STUDIES: Cite relevant statutory sections (Constitution of Pakistan 1973, PPC, CrPC) and legal doctrines.');
+      }
+    }
+
+    buffer.writeln('\n=== OUTPUT STRUCTURE ===');
+    buffer.writeln('1. If the student sends a greeting (e.g. "hi", "salam", "hello", "kese ho"), greet them warmly by their name (${profile.name}), acknowledge their program (${profile.program.isNotEmpty ? profile.program : profile.academicLevelString}), and ask what topic or chapter they want to master.');
+    buffer.writeln('2. For academic questions, structure your answer into:');
+    buffer.writeln('   ### 1. Conceptual Breakdown & Syllabus Definition');
+    buffer.writeln('   ### 2. Practical Worked Exam Example (Worked Calculation, Complete Code Snippet, or Domain Case Study)');
+    buffer.writeln('   ### 3. 3-Point Revision Summary for Exam Prep');
+    buffer.writeln('3. Format code in clean markdown code blocks (```csharp, ```python, ```sql, etc.).');
+    buffer.writeln('4. Format equations clearly without unreadable raw LaTeX backslash codes.');
+    buffer.writeln('5. If language is Urdu or Roman Urdu, respond in natural academic Urdu with English terms in parentheses.');
+
+    return buffer.toString();
   }
 
   /// Free, zero-key public AI text engine (Tier 2 Fallback)
   Future<String?> _callFreeOpenAiApi({
     required String question,
-    required String studentLevel,
-    required String language,
+    required String systemInstruction,
   }) async {
-    final systemPrompt = '''
-You are a friendly, encouraging, and expert AI study companion and tutor for Pakistani students (Matric, FSc, MDCAT, CSS, University).
-Target Student Level: $studentLevel.
-Answer Language: $language.
-
-Rules:
-1. If the student sends a greeting (e.g. "hi", "salam", "hello", "kese ho"), respond warmly as their Learnozi AI Study Companion and ask what topic, chapter, or question they would like help with today.
-2. For syllabus and exam questions (Theory, Math, Physics, Chemistry, Biology, Computer Science, Coding, Programming, AI):
-   a. Explain the concept step-by-step in clear, easy-to-understand terms.
-   b. Provide ONE practical, worked exam example or full runnable code snippet.
-   c. Conclude with a crisp "3-Point Revision Summary" for exam prep.
-3. If the question is in Urdu, Roman Urdu, or selected language is Urdu, respond in clear Urdu.
-4. Mobile Academic Formatting Rules:
-   - Format equations and math clearly (e.g. x = (-b ± √(b² - 4ac)) / (2a), F = m × a).
-   - Avoid raw LaTeX backslash codes.
-   - For code, format in clean markdown code blocks with the language tag (e.g. ```csharp, ```python).
-   - When writing in Urdu, maintain natural Urdu syntax. Keep English terms clean in parentheses.
-   - Use clean Markdown: "### " for section headings, "**" for bold concepts, and numbered points (1., 2., 3.).
-''';
-
-    final fullPrompt = '$systemPrompt\n\nStudent Question: $question';
-
-    // Strategy 1: URL encoded GET to free open AI endpoint (instant response, no key)
-    try {
-      final encoded = Uri.encodeComponent(fullPrompt);
-      final url = Uri.parse('https://text.pollinations.ai/$encoded');
-      final response = await http.get(url).timeout(const Duration(seconds: 12));
-      if (response.statusCode == 200) {
-        final text = response.body.trim();
-        if (text.isNotEmpty &&
-            !text.contains('<!DOCTYPE html>') &&
-            !text.startsWith('Error:') &&
-            !text.startsWith('{"status":400')) {
-          return text;
-        }
-      }
-    } catch (e) {
-      debugPrint('Free AI API Strategy 1 failed: $e. Trying Strategy 2.');
-    }
-
-    // Strategy 2: JSON POST with OpenAI compatibility schema
+    // Strategy 1: High-Speed OpenAI-Fast Anonymous Model via POST
     try {
       final url = Uri.parse('https://text.pollinations.ai/');
       final response = await http
           .post(
             url,
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'text/plain, */*',
+            },
             body: jsonEncode({
               'messages': [
-                {'role': 'system', 'content': systemPrompt},
+                {'role': 'system', 'content': systemInstruction},
                 {'role': 'user', 'content': question},
               ],
+              'model': 'openai-fast',
+              'jsonMode': false,
             }),
           )
-          .timeout(const Duration(seconds: 12));
+          .timeout(const Duration(seconds: 14));
 
       if (response.statusCode == 200) {
         final text = response.body.trim();
         if (text.isNotEmpty &&
             !text.contains('<!DOCTYPE html>') &&
-            !text.startsWith('{"status":400')) {
+            !text.startsWith('Error:') &&
+            !text.contains('FREE_LIMIT') &&
+            !text.startsWith('{"status":400') &&
+            !text.startsWith('{"status":402')) {
           return text;
         }
       }
     } catch (e) {
-      debugPrint('Free AI API Strategy 2 failed: $e');
+      debugPrint('Free AI API Strategy 1 (openai-fast) failed: $e');
+    }
+
+    // Strategy 2: Standard OpenAI model with Seed
+    try {
+      final url = Uri.parse('https://text.pollinations.ai/');
+      final response = await http
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'text/plain, */*',
+            },
+            body: jsonEncode({
+              'messages': [
+                {'role': 'system', 'content': systemInstruction},
+                {'role': 'user', 'content': question},
+              ],
+              'model': 'openai',
+              'seed': 42,
+            }),
+          )
+          .timeout(const Duration(seconds: 14));
+
+      if (response.statusCode == 200) {
+        final text = response.body.trim();
+        if (text.isNotEmpty &&
+            !text.contains('<!DOCTYPE html>') &&
+            !text.startsWith('Error:') &&
+            !text.contains('FREE_LIMIT') &&
+            !text.startsWith('{"status":400') &&
+            !text.startsWith('{"status":402')) {
+          return text;
+        }
+      }
+    } catch (e) {
+      debugPrint('Free AI API Strategy 2 (openai) failed: $e');
+    }
+
+    // Strategy 3: Lightweight concise query via GET (short query string)
+    try {
+      final concisePrompt = 'Syllabus Question: $question\nExplain thoroughly with clear academic points and exam examples.';
+      final encoded = Uri.encodeComponent(concisePrompt);
+      final url = Uri.parse('https://text.pollinations.ai/$encoded?model=openai-fast');
+      final response = await http.get(url, headers: {'Accept': 'text/plain, */*'}).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final text = response.body.trim();
+        if (text.isNotEmpty &&
+            !text.contains('<!DOCTYPE html>') &&
+            !text.startsWith('Error:') &&
+            !text.contains('FREE_LIMIT') &&
+            !text.startsWith('{"status":400') &&
+            !text.startsWith('{"status":402')) {
+          return text;
+        }
+      }
+    } catch (e) {
+      debugPrint('Free AI API Strategy 3 (GET) failed: $e');
     }
 
     return null;
@@ -195,8 +318,7 @@ Rules:
 
   Future<String?> _callGeminiApi({
     required String question,
-    required String studentLevel,
-    required String language,
+    required String systemInstruction,
     String? imageBase64,
   }) async {
     final cleanKey = apiKey.trim().replaceAll('"', '').replaceAll("'", "");
@@ -204,28 +326,6 @@ Rules:
       lastApiError = 'No API key configured';
       return null;
     }
-
-    final systemInstruction =
-        '''
-You are a friendly, encouraging, and expert AI study companion and tutor for Pakistani students (Matric, FSc, MDCAT, CSS, University).
-Target Student Level: $studentLevel.
-Answer Language: $language.
-
-Rules:
-1. If the student sends a greeting (e.g. "hi", "salam", "hello", "kese ho"), respond warmly as their Learnozi AI Study Companion and ask what topic, chapter, or question they would like help with today.
-2. For syllabus and exam questions (Theory, Math, Physics, Chemistry, Biology, Computer Science, Coding, Programming, AI):
-   a. Explain the concept step-by-step in clear, easy-to-understand terms.
-   b. Provide ONE practical, worked exam example or full runnable code snippet.
-   c. Conclude with a crisp "3-Point Revision Summary" for exam prep.
-3. If the question is in Urdu, Roman Urdu, or selected language is Urdu, respond in clear Urdu.
-4. Mobile Academic Formatting Rules:
-   - Format equations and math clearly using clean, readable notation (e.g., x = (-b ± √(b² - 4ac)) / (2a), ax² + bx + c = 0, a ≠ 0, F = m × a).
-   - Avoid raw LaTeX backslash codes (like \\frac, \\sqrt, \\pm, \\neq) or raw \$...\$ / \$\$...\$\$ blocks that are unreadable on mobile screens.
-   - Place mathematical formulas on their own dedicated lines so they stand out cleanly.
-   - For code, format in clean markdown code blocks with the language tag (e.g. ```csharp, ```python).
-   - When writing in Urdu, maintain natural Urdu syntax. Keep English terms clean in parentheses (e.g. "مصنوعی ذہانت (Artificial Intelligence)").
-   - Use clean Markdown: "### " for section headings, "**" for bold concepts, and numbered points (1., 2., 3.).
-''';
 
     final userParts = <Map<String, dynamic>>[];
     userParts.add({
@@ -240,18 +340,17 @@ Rules:
 
     final requestBody = jsonEncode({
       'contents': [
-        {
-          'role': 'user',
-          'parts': userParts,
-        }
+        {'role': 'user', 'parts': userParts},
       ],
-      'generationConfig': {
-        'temperature': 0.7,
-        'maxOutputTokens': 1500,
-      },
+      'generationConfig': {'temperature': 0.7, 'maxOutputTokens': 1500},
     });
 
-    final candidateModels = [_model, 'gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+    final candidateModels = [
+      _model,
+      'gemini-1.5-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-pro',
+    ];
     final modelsToTry = <String>[];
     for (final m in candidateModels) {
       if (!modelsToTry.contains(m)) modelsToTry.add(m);
@@ -289,8 +388,11 @@ Rules:
             }
           }
         } else {
-          lastApiError = 'Model $modelName HTTP ${response.statusCode}: ${response.body}';
-          debugPrint('Gemini API Error ($modelName): Status ${response.statusCode} - ${response.body}');
+          lastApiError =
+              'Model $modelName HTTP ${response.statusCode}: ${response.body}';
+          debugPrint(
+            'Gemini API Error ($modelName): Status ${response.statusCode} - ${response.body}',
+          );
           if (response.statusCode == 404) {
             continue; // Try fallback model
           }
@@ -308,10 +410,20 @@ Rules:
     required String question,
     required String studentLevel,
     required String language,
+    UserProfile? profile,
   }) {
     final q = question.toLowerCase();
     final bool isUrdu =
         language == 'Urdu' || RegExp(r'[\u0600-\u06FF]').hasMatch(question);
+
+    final studentName = profile?.name.isNotEmpty == true ? profile!.name : 'Student';
+    final department = (profile?.educationType == EducationType.university)
+        ? (profile?.program.isNotEmpty == true
+            ? '${profile!.program}${profile.semester.isNotEmpty ? " (${profile.semester})" : ""}'
+            : studentLevel)
+        : (profile?.schoolGrade.isNotEmpty == true
+            ? '${profile!.schoolGrade}${profile.schoolCourse.isNotEmpty ? " • ${profile.schoolCourse}" : ""}'
+            : studentLevel);
 
     // Greetings & Casual check
     final trimmed = q.trim();
@@ -330,8 +442,8 @@ Rules:
         trimmed.contains('tum kon ho')) {
       if (isUrdu) {
         return '''
-وعلیکم السلام! 🎓 میں آپ کا لرنوزی اے آئی اسٹڈی کمپینین ہوں۔
-میں آپ کے نصاب ($studentLevel) کے کسی بھی موضوع، نظریے یا امتحانی سوال کو مرحلہ وار سمجھانے اور مثالوں سے واضح کرنے کے لیے حاضر ہوں۔
+وعلیکم السلام $studentName! 🎓 میں آپ کا لرنوزی اے آئی اسٹڈی کمپینین ہوں۔
+میں آپ کے شعبے ($department) کے نصاب کے مطابق کسی بھی موضوع، نظریے، کوڈ یا امتحانی سوال کو مرحلہ وار سمجھانے اور 3 نکاتی خلاصے کے ساتھ واضح کرنے کے لیے حاضر ہوں۔
 
 آج آپ کس مضمون یا ٹاپک پر مطالعہ کرنا چاہتے ہیں؟ مجھے بتائیں، ہم مل کر تیاری کرتے ہیں!
 ''';
@@ -1045,46 +1157,46 @@ Solve: x² - 7x + 12 = 0
     if (isUrdu) {
       return '''
 🎓 **لرنوزی تعلیمی معاون - تفصیلی امتحانی گائیڈ**
-(موضوع: $question | نصاب: $studentLevel)
+(موضوع: $question | شعبہ: $department | طالب علم: $studentName)
 
 📌 **1. بنیادی اور مرحلہ وار تشریح:**
-- آپ کا سوال امتحانی نقطہ نظر سے انتہائی اہم ہے۔
+- آپ کا سوال "$question" شعبہ $department کے امتحانی نقطہ نظر سے انتہائی اہم ہے۔
 - اس تصور کا بنیادی مقصد نظریاتی اصولوں کو عملی مسائل کے حل میں استعمال کرنا ہے۔
 - نصاب کے مطابق اس کے بنیادی عناصر کو الگ الگ نکات میں سمجھنا نتائج کو بہتر بناتا ہے۔
 
 💡 **2. امتحانی عملی مثال:**
-- فرض کریں کہ آپ امتحان میں اس موضوع کا سوال حل کر رہے ہیں۔
+- امتحانی تناظر: $department کے امتحانی سوالات میں اس تصور کا اطلاق۔
 - پہلے معلوم شدہ ڈیٹا (Given Data) درج کریں، پھر متعلقہ اصول یا فارمولا لاگو کریں۔
 - آخری مرحلے میں اکائیوں (Units) اور منطقی استدلال کے ساتھ جواب واضح تحریر کریں۔
 
 🎯 **3. امتحان کے لیے 3 نکاتی خلاصہ:**
 1. اہم اصطلاحات اور تعاریف کی درستگی پر خصوصی توجہ دیں۔
 2. فارمولوں اور بنیادی اصولوں کی روزانہ فلیش کارڈز کے ذریعے دہرائی کریں۔
-3. کمزور پہلوؤں کی نشاندہی کے لیے لرنوزی کوئز کا فوری استعمال کریں۔
+3. کمزور پہلوؤں کی نشاندہی اور پریکٹس کے لیے لرنوزی کوئز کا فوری استعمال کریں۔
 ''';
     } else {
       return '''
 🎓 **Learnozi Academic Concept Explainer - Examination Guide**
-(Topic: "$question" | Target: $studentLevel)
+(Topic: "$question" | Field: $department | Student: $studentName)
 
 📌 **1. Step-by-Step Concept Breakdown:**
-1. **Core Definition & Foundation:**
-   This topic is a critical cornerstone of your syllabus. It addresses how fundamental principles behave under standard examination conditions.
-2. **Underlying Mechanism & Scientific Law:**
-   The governing relationships connect theoretical parameters with measurable quantities. Mastering the key terms and derivations ensures full conceptual clarity.
+1. **Curriculum Alignment & Core Definition:**
+   For $department students, "$question" is an essential curriculum concept examined in university and board assessments.
+2. **Underlying Principles & Disciplinary Mechanism:**
+   Mastering this topic requires understanding the governing relationships, standard terminology, and domain-specific applications.
 3. **Exam Application & Problem-Solving Approach:**
-   When answering subjective or objective questions on this topic, always state the primary theorem first, followed by boundary conditions and standard units.
+   When answering subjective or objective questions on this topic, state the formal textbook definition first, followed by boundary conditions, governing formulas, and practical significance.
 
 💡 **2. Practical Worked Exam Example:**
-Applied Problem Context:
+Applied Problem Context for $department:
 - Identify Given Values: Extract parameters directly from the question prompt.
-- Select Formula: Connect the knowns to the unknowns using syllabus-verified equations.
-- Calculate & Conclude: Substitute figures carefully and specify the exact SI dimensions and physical significance.
+- Select Formula / Method: Connect the knowns to the unknowns using syllabus-verified equations or algorithmic models.
+- Calculate & Conclude: Substitute figures carefully, state exact units, and explain the disciplinary significance.
 
 🎯 **3-Point Revision Summary for Exam Prep:**
-1. Core Terminology: Memorize the precise textbook definitions and dimensional units.
-2. Formula Application: Keep track of assumptions and edge cases in derivations.
-3. Active Recall: Reinforce this concept by attempting the topic-specific Learnozi Adaptive Quiz today!
+1. Core Terminology: Memorize the precise textbook definitions and technical distinctions.
+2. Practical Application: Connect this concept to prerequisite topics and upcoming modules in your syllabus.
+3. Active Recall: Reinforce your retention by generating an adaptive practice quiz on this topic in Learnozi!
 ''';
     }
   }

@@ -242,6 +242,12 @@ class AuthService extends ChangeNotifier {
         return 'Unable to retrieve user credentials from Google.';
       }
 
+      // Desktop Platform Check (Windows / Linux): google_sign_in has no native channel implementation
+      if (defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux) {
+        return 'Google Sign-In via native account picker is supported on Android, iOS, and Web. On Windows Desktop, please use Email Sign-In or Explore App Demo.';
+      }
+
       // Mobile (Android / iOS): Uses native Google Play Services Account Picker
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
@@ -277,7 +283,7 @@ class AuthService extends ChangeNotifier {
         case 'popup-closed-by-user':
           return null; // Silent cancel when user closes web popup
         case 'operation-not-allowed':
-          return 'Google Sign-In is not enabled yet in Firebase Console. Go to Firebase Console > Authentication > Sign-in method and enable "Google".';
+          return 'Google Sign-In is not enabled in Firebase Console. Enable "Google" under Firebase Console > Authentication > Sign-in method (or explore via Student Demo).';
         case 'account-exists-with-different-credential':
           return 'An account already exists with a different sign-in method.';
         case 'invalid-credential':
@@ -285,6 +291,11 @@ class AuthService extends ChangeNotifier {
         case 'network-request-failed':
           return 'Network error: Please check your internet connection.';
         default:
+          final msg = e.message ?? '';
+          if (msg.toLowerCase().contains('sign-in provider is disabled') ||
+              msg.toLowerCase().contains('operation is not allowed')) {
+            return 'Google Sign-In is disabled in Firebase Console. Enable "Google" under Authentication > Sign-in method tab, or use Student Demo.';
+          }
           return e.message ?? 'Google authentication failed (${e.code}).';
       }
     } catch (e) {
@@ -296,7 +307,7 @@ class AuthService extends ChangeNotifier {
         return null;
       }
       if (err.contains('MissingPluginException')) {
-        return 'Please restart the app (press Stop in VS Code and run again) so the new Google Sign-In plugin can link.';
+        return 'Google Sign-In plugin is not supported on this desktop platform, or needs an app restart. Please use Email Sign-In or Explore App Demo.';
       }
       if (err.contains('10') || err.contains('DEVELOPER_ERROR')) {
         return 'Google Sign-In configuration error: Please check Firebase Console SHA-1 fingerprint.';

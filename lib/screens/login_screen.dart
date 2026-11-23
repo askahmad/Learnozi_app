@@ -47,7 +47,11 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _showCustomSnackBar({required String message, required bool isError}) {
+  void _showCustomSnackBar({
+    required String message,
+    required bool isError,
+    SnackBarAction? action,
+  }) {
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -67,6 +71,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ],
         ),
+        action: action,
         backgroundColor: isError ? const Color(0xFFEF4444) : const Color(0xFF10B981),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -749,7 +754,27 @@ class _LoginScreenState extends State<LoginScreen> {
       final error = await _authService.signInWithGoogle();
       if (!mounted) return;
       if (error != null) {
-        _showCustomSnackBar(message: error, isError: true);
+        final isConfigOrPlatformIssue = error.contains('Firebase') ||
+            error.contains('disabled') ||
+            error.contains('Desktop') ||
+            error.contains('not enabled');
+        _showCustomSnackBar(
+          message: error,
+          isError: true,
+          action: isConfigOrPlatformIssue
+              ? SnackBarAction(
+                  label: 'Demo Mode',
+                  textColor: Colors.amberAccent,
+                  onPressed: () {
+                    _authService.loginAsDemoStudent();
+                    _showCustomSnackBar(
+                      message: 'Welcome! Exploring Learnozi in Student Demo Mode.',
+                      isError: false,
+                    );
+                  },
+                )
+              : null,
+        );
       }
     } finally {
       if (mounted) {
