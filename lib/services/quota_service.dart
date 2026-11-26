@@ -1,17 +1,42 @@
 import 'package:flutter/foundation.dart';
+import 'storage_service.dart';
 
 class QuotaService extends ChangeNotifier {
   static final QuotaService _instance = QuotaService._internal();
   factory QuotaService() => _instance;
   QuotaService._internal();
 
+  static const String _storageKey = 'daily_quota';
   static const int maxDailyAiRequests = 15;
   static const int maxDailyDocUploads = 3;
   static const int maxFileSizeMb = 5;
 
-  int _usedAiRequestsToday = 2;
+  int _usedAiRequestsToday = 0;
   int _usedDocUploadsToday = 0;
   DateTime _lastDate = DateTime.now();
+
+  Future<void> loadFromStorage() async {
+    final raw = await StorageService().loadJson(_storageKey, preferCloud: false);
+    if (raw is Map) {
+      _usedAiRequestsToday = (raw['aiRequests'] as num?)?.toInt() ?? 0;
+      _usedDocUploadsToday = (raw['docUploads'] as num?)?.toInt() ?? 0;
+      _lastDate = DateTime.tryParse(raw['lastDate'] ?? '') ?? DateTime.now();
+      _checkDailyReset();
+      notifyListeners();
+    }
+  }
+
+  void _persist() {
+    StorageService().saveJson(
+      _storageKey,
+      {
+        'aiRequests': _usedAiRequestsToday,
+        'docUploads': _usedDocUploadsToday,
+        'lastDate': _lastDate.toIso8601String(),
+      },
+      syncToCloud: false,
+    );
+  }
 
   int get remainingAiRequests {
     _checkDailyReset();
@@ -37,6 +62,7 @@ class QuotaService extends ChangeNotifier {
     _checkDailyReset();
     if (_usedAiRequestsToday < maxDailyAiRequests) {
       _usedAiRequestsToday++;
+      _persist();
       notifyListeners();
     }
   }
@@ -45,6 +71,7 @@ class QuotaService extends ChangeNotifier {
     _checkDailyReset();
     if (_usedDocUploadsToday < maxDailyDocUploads) {
       _usedDocUploadsToday++;
+      _persist();
       notifyListeners();
     }
   }
@@ -55,6 +82,7 @@ class QuotaService extends ChangeNotifier {
       _usedAiRequestsToday = 0;
       _usedDocUploadsToday = 0;
       _lastDate = now;
+      _persist();
       notifyListeners();
     }
   }

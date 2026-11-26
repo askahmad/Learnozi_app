@@ -1,10 +1,13 @@
 import 'package:flutter/foundation.dart';
 import '../models/user_profile.dart';
+import 'storage_service.dart';
 
 class UserService extends ChangeNotifier {
   static final UserService _instance = UserService._internal();
   factory UserService() => _instance;
   UserService._internal();
+
+  static const String _storageKey = 'user_profile';
 
   UserProfile _currentProfile = UserProfile(
     id: 'user_101',
@@ -26,6 +29,32 @@ class UserService extends ChangeNotifier {
   );
 
   UserProfile get profile => _currentProfile;
+
+  Future<void> loadFromStorage({String? fallbackName, String? fallbackEmail}) async {
+    final raw = await StorageService().loadJson(_storageKey);
+    if (raw is Map) {
+      _currentProfile = UserProfile.fromJson(Map<String, dynamic>.from(raw));
+      notifyListeners();
+    } else if (fallbackEmail != null && fallbackEmail.isNotEmpty) {
+      _currentProfile = UserProfile(
+        id: 'user_${DateTime.now().millisecondsSinceEpoch}',
+        name: (fallbackName != null && fallbackName.isNotEmpty)
+            ? fallbackName
+            : fallbackEmail.split('@').first,
+        email: fallbackEmail,
+        educationType: EducationType.university,
+        universityName: '',
+        semester: '',
+        program: '',
+      );
+      _persist();
+      notifyListeners();
+    }
+  }
+
+  void _persist() {
+    StorageService().saveJson(_storageKey, _currentProfile.toJson());
+  }
 
   void setNewProfile({
     required String name,
@@ -58,6 +87,7 @@ class UserService extends ChangeNotifier {
       language: language,
       earnedBadges: ['first_step'],
     );
+    _persist();
     notifyListeners();
   }
 
@@ -85,6 +115,7 @@ class UserService extends ChangeNotifier {
     if (program != null) _currentProfile.program = program;
     if (role != null) _currentProfile.role = role;
     if (language != null) _currentProfile.language = language;
+    _persist();
     notifyListeners();
   }
 
@@ -94,23 +125,27 @@ class UserService extends ChangeNotifier {
       _currentProfile.longestStreak = _currentProfile.currentStreak;
     }
     _currentProfile.lastActiveDate = DateTime.now();
+    _persist();
     notifyListeners();
   }
 
   void unlockBadge(String badgeId) {
     if (!_currentProfile.earnedBadges.contains(badgeId)) {
       _currentProfile.earnedBadges.add(badgeId);
+      _persist();
       notifyListeners();
     }
   }
 
   void toggleAdminRole() {
     _currentProfile.role = (_currentProfile.role == 'admin') ? 'student' : 'admin';
+    _persist();
     notifyListeners();
   }
 
   void toggleLanguage() {
     _currentProfile.language = (_currentProfile.language == 'English') ? 'Urdu' : 'English';
+    _persist();
     notifyListeners();
   }
 }

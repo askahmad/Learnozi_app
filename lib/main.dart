@@ -6,10 +6,37 @@ import 'firebase_options.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
+import 'services/adaptive_service.dart';
 import 'services/auth_service.dart';
+import 'services/community_service.dart';
+import 'services/document_service.dart';
+import 'services/flashcard_service.dart';
+import 'services/quiz_service.dart';
+import 'services/quota_service.dart';
+import 'services/storage_service.dart';
+import 'services/study_planner_service.dart';
 import 'services/theme_service.dart';
 import 'services/user_service.dart';
 import 'utils/app_theme.dart';
+
+/// Hydrates all stateful services from local cache / Firestore for the active scope.
+Future<void> hydrateAppServices({String? fallbackName, String? fallbackEmail}) async {
+  await StorageService().init();
+  await Future.wait([
+    ThemeService().loadFromStorage(),
+    UserService().loadFromStorage(
+      fallbackName: fallbackName,
+      fallbackEmail: fallbackEmail,
+    ),
+    QuotaService().loadFromStorage(),
+    AdaptiveService().loadFromStorage(),
+    FlashcardService().loadFromStorage(),
+    StudyPlannerService().loadFromStorage(),
+    QuizService().loadFromStorage(),
+    DocumentService().loadFromStorage(),
+    CommunityService().loadFromStorage(),
+  ]);
+}
 
 void main() async {
   // Ensure Flutter engine bindings are initialized before async Firebase call
@@ -23,6 +50,12 @@ void main() async {
   } catch (e) {
     debugPrint('Firebase initialization error: $e');
   }
+
+  final currentUser = AuthService().currentUser;
+  await hydrateAppServices(
+    fallbackName: currentUser?.displayName,
+    fallbackEmail: currentUser?.email,
+  );
 
   runApp(const LearnoziApp());
 }

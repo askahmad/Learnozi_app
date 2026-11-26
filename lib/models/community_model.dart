@@ -12,6 +12,22 @@ class CommunityReply {
     required this.timestamp,
     this.upvotes = 0,
   });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'authorName': authorName,
+    'content': content,
+    'timestamp': timestamp.toIso8601String(),
+    'upvotes': upvotes,
+  };
+
+  factory CommunityReply.fromJson(Map<String, dynamic> json) => CommunityReply(
+    id: json['id'] ?? '',
+    authorName: json['authorName'] ?? '',
+    content: json['content'] ?? '',
+    timestamp: DateTime.tryParse(json['timestamp'] ?? '') ?? DateTime.now(),
+    upvotes: (json['upvotes'] as num?)?.toInt() ?? 0,
+  );
 }
 
 class CommunityPost {
@@ -40,4 +56,35 @@ class CommunityPost {
     this.isHidden = false,
     List<CommunityReply>? replies,
   }) : replies = replies ?? [];
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'authorName': authorName,
+    'title': title,
+    'content': content,
+    'subjectTag': subjectTag,
+    'timestamp': timestamp.toIso8601String(),
+    'isResolved': isResolved,
+    'upvotes': upvotes,
+    'flagsCount': flagsCount,
+    'isHidden': isHidden,
+    'replies': replies.map((r) => r.toJson()).toList(),
+  };
+
+  factory CommunityPost.fromJson(Map<String, dynamic> json) => CommunityPost(
+    id: json['id'] ?? '',
+    authorName: json['authorName'] ?? '',
+    title: json['title'] ?? '',
+    content: json['content'] ?? '',
+    subjectTag: json['subjectTag'] ?? 'General',
+    timestamp: DateTime.tryParse(json['timestamp'] ?? '') ?? DateTime.now(),
+    isResolved: json['isResolved'] ?? false,
+    upvotes: (json['upvotes'] as num?)?.toInt() ?? 0,
+    flagsCount: (json['flagsCount'] as num?)?.toInt() ?? 0,
+    isHidden: json['isHidden'] ?? false,
+    replies: (json['replies'] as List?)
+            ?.map((r) => CommunityReply.fromJson(Map<String, dynamic>.from(r)))
+            .toList() ??
+        [],
+  );
 }

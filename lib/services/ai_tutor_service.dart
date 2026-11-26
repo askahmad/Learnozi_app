@@ -1,12 +1,10 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 
-import '../config/gemini_config.dart';
 import '../models/quiz_model.dart';
 import '../models/user_profile.dart';
 import 'adaptive_service.dart';
+import 'gemini_client.dart';
+import 'storage_service.dart';
 import 'user_service.dart';
 
 class ChatMessage {
@@ -25,6 +23,22 @@ class ChatMessage {
     this.imageBase64,
     this.feedback = 0,
   });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'text': text,
+    'isUser': isUser,
+    'timestamp': timestamp.toIso8601String(),
+    'feedback': feedback,
+  };
+
+  factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
+    id: json['id'] ?? '',
+    text: json['text'] ?? '',
+    isUser: json['isUser'] ?? false,
+    timestamp: DateTime.tryParse(json['timestamp'] ?? '') ?? DateTime.now(),
+    feedback: (json['feedback'] as num?)?.toInt() ?? 0,
+  );
 }
 
 class AiTutorService {
@@ -32,24 +46,43 @@ class AiTutorService {
   factory AiTutorService() => _instance;
   AiTutorService._internal();
 
-  // Google AI Studio / Gemini API Key (Configured in background or via environment)
-  static String apiKey = GeminiConfig.apiKey.trim().isNotEmpty
-      ? GeminiConfig.apiKey.trim()
-      : const String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
+  static const String _chatStorageKey = 'ai_tutor_history';
+
+  // Google AI Studio / Gemini API Key (delegated to shared GeminiClient)
+  static String get apiKey => GeminiClient.apiKey;
+  static set apiKey(String value) => GeminiClient.apiKey = value;
 
   static void setApiKey(String key) {
-    apiKey = key.trim().replaceAll('"', '').replaceAll("'", "");
+    GeminiClient.apiKey = key.trim().replaceAll('"', '').replaceAll("'", "");
   }
 
-  static String _model = 'gemini-1.5-flash';
-
   static void setModel(String model) {
-    _model = model.trim();
+    GeminiClient.activeModel = model.trim();
   }
 
   // Diagnostic tracking for live Gemini API calls
-  static String? lastApiError;
-  static int? lastStatusCode;
+  static String? get lastApiError => GeminiClient.lastApiError;
+  static int? get lastStatusCode => GeminiClient.lastStatusCode;
+
+  Future<List<ChatMessage>> loadChatHistory() async {
+    final raw = await StorageService().loadJson(_chatStorageKey);
+    if (raw is List) {
+      return raw
+          .map((m) => ChatMessage.fromJson(Map<String, dynamic>.from(m)))
+          .toList();
+    }
+    return [];
+  }
+
+  Future<void> saveChatHistory(List<ChatMessage> messages) async {
+    final recent = messages.length > 60
+        ? messages.sublist(messages.length - 60)
+        : messages;
+    await StorageService().saveJson(
+      _chatStorageKey,
+      recent.map((m) => m.toJson()).toList(),
+    );
+  }
 
   // Feedback logging (FR-16)
   static final List<Map<String, dynamic>> feedbackLog = [];
@@ -70,49 +103,85 @@ class AiTutorService {
 
   Future<String> askTutor({
     required String question,
-    required String studentLevel, // e.g. "FSc Part 1 / Medical" or full academic level
+    required String
+    studentLevel, // e.g. "FSc Part 1 / Medical" or full academic level
     required String language, // "English" or "Urdu"
+    String?
+    activeSubject, // e.g. "Database Systems", "Operating Systems", "Physics"
     UserProfile? profile,
     List<TopicPerformance>? weakTopics,
+    List<ChatMessage>? conversationHistory,
     String? imageBase64,
   }) async {
     final activeProfile = profile ?? UserService().profile;
     final activeWeakTopics = weakTopics ?? AdaptiveService().weakTopics;
-    final activeLevel = studentLevel.isNotEmpty ? studentLevel : activeProfile.academicLevelString;
-    final cleanKey = apiKey.trim().replaceAll('"', '').replaceAll("'", "");
+    final activeLevel = studentLevel.isNotEmpty
+        ? studentLevel
+        : activeProfile.academicLevelString;
 
     final personalizedPrompt = _buildPersonalizedAcademicPrompt(
       profile: activeProfile,
       weakTopics: activeWeakTopics,
       studentLevel: activeLevel,
       language: language,
+      activeSubject: activeSubject,
     );
 
-    // 1. Tier 1: Live Google Gemini API (if key is configured in GeminiConfig or environment)
-    if (cleanKey.isNotEmpty) {
+    // Build recent multi-turn context (excluding welcome message)
+    final recentHistory = (conversationHistory ?? const <ChatMessage>[])
+        .where((m) => m.id != 'welcome' && m.text.trim().isNotEmpty)
+        .toList();
+    final historyWindow = recentHistory.length > 8
+        ? recentHistory.sublist(recentHistory.length - 8)
+        : recentHistory;
+
+    // 1. Tier 1: Live Google Gemini API (via shared GeminiClient)
+    if (GeminiClient.cleanApiKey.isNotEmpty) {
       try {
-        final liveResult = await _callGeminiApi(
-          question: question,
+        final contents = <Map<String, dynamic>>[];
+        for (final msg in historyWindow) {
+          contents.add({
+            'role': msg.isUser ? 'user' : 'model',
+            'parts': [
+              {'text': msg.text}
+            ],
+          });
+        }
+        final userParts = <Map<String, dynamic>>[
+          {'text': question},
+        ];
+        if (imageBase64 != null && imageBase64.isNotEmpty) {
+          userParts.add({
+            'inlineData': {'mimeType': 'image/jpeg', 'data': imageBase64},
+          });
+        }
+        contents.add({'role': 'user', 'parts': userParts});
+
+        final liveResult = await GeminiClient.generateContent(
+          contents: contents,
           systemInstruction: personalizedPrompt,
-          imageBase64: imageBase64,
+          temperature: 0.7,
+          maxOutputTokens: 1500,
         );
         if (liveResult != null && liveResult.trim().isNotEmpty) {
           return liveResult;
         }
       } catch (e) {
-        lastApiError = 'Gemini call failed: $e';
         debugPrint(
           'Gemini live call failed or timed out: $e. Falling back to free AI engine.',
         );
       }
     }
 
-    // 2. Tier 2: Free Zero-Key Open AI Engine (Answers ANY question live and free without setup)
+    // 2. Tier 2: Free Zero-Key Open AI Engine with multi-turn context
     try {
-      final freeAiResult = await _callFreeOpenAiApi(
-        question: question,
-        systemInstruction: personalizedPrompt,
-      );
+      final messages = <Map<String, String>>[
+        {'role': 'system', 'content': personalizedPrompt},
+        for (final msg in historyWindow)
+          {'role': msg.isUser ? 'user' : 'assistant', 'content': msg.text},
+        {'role': 'user', 'content': question},
+      ];
+      final freeAiResult = await GeminiClient.callFreeOpenAi(messages: messages);
       if (freeAiResult != null && freeAiResult.trim().isNotEmpty) {
         return freeAiResult;
       }
@@ -122,7 +191,7 @@ class AiTutorService {
       );
     }
 
-    // 3. Tier 3: High-Yield Academic Syllabus Knowledge Engine Fallback (Guarantees 100% Viva reliability)
+    // 3. Tier 3: High-Yield Academic Syllabus Knowledge Engine Fallback
     return _generateIntelligentAcademicExplanation(
       question: question,
       studentLevel: activeLevel,
@@ -137,13 +206,20 @@ class AiTutorService {
     required List<TopicPerformance> weakTopics,
     required String studentLevel,
     required String language,
+    String? activeSubject,
   }) {
     final buffer = StringBuffer();
-    buffer.writeln('You are the Learnozi AI Study Companion & Specialized Academic Tutor.');
+    buffer.writeln(
+      'You are the Learnozi AI Study Companion & Specialized Academic Tutor.',
+    );
     buffer.writeln('Answer Language: $language.');
     buffer.writeln('\n=== STUDENT ACADEMIC PROFILE & DEPARTMENT ===');
-    buffer.writeln('Name: ${profile.name.isNotEmpty ? profile.name : "Student"}');
-    buffer.writeln('Education Tier: ${profile.educationType == EducationType.university ? "University Degree Program" : "School / College (Intermediate)"}');
+    buffer.writeln(
+      'Name: ${profile.name.isNotEmpty ? profile.name : "Student"}',
+    );
+    buffer.writeln(
+      'Education Tier: ${profile.educationType == EducationType.university ? "University Degree Program" : "School / College (Intermediate)"}',
+    );
 
     if (profile.educationType == EducationType.university) {
       buffer.writeln('University: ${profile.universityName}');
@@ -155,254 +231,150 @@ class AiTutorService {
     }
     buffer.writeln('Full Curriculum Descriptor: $studentLevel');
 
+    if (activeSubject != null &&
+        activeSubject.isNotEmpty &&
+        activeSubject != 'All Subjects' &&
+        activeSubject != 'تمام مضامین') {
+      buffer.writeln('\n=== ENROLLED SUBJECT / ACTIVE COURSE FOCUS ===');
+      buffer.writeln('Target Active Course: $activeSubject');
+      buffer.writeln(
+        'CRITICAL INSTRUCTION: Frame your explanation, code examples, formulas, and examination standards exclusively through the syllabus of "$activeSubject" for this student\'s level. Do not deviate into unrelated fields.',
+      );
+    }
+
     if (weakTopics.isNotEmpty) {
-      final weakList = weakTopics.map((w) => '${w.subject}: ${w.topic} (${(w.accuracy * 100).toInt()}% accuracy)').join(', ');
+      final weakList = weakTopics
+          .map(
+            (w) =>
+                '${w.subject}: ${w.topic} (${(w.accuracy * 100).toInt()}% accuracy)',
+          )
+          .join(', ');
+      buffer.writeln('\n=== ADAPTIVE LEARNING & WEAK AREAS ===');
       buffer.writeln('Diagnosed Weak Topics from Adaptive Engine: $weakList');
+      buffer.writeln(
+        'CRITICAL ADAPTATION: If the student\'s question touches on or relates to any of these weak areas, provide extra foundational scaffolding, intuitive visual breakdowns, and explicitly highlight common exam pitfalls to resolve their learning gap.',
+      );
     }
 
     buffer.writeln('\n=== STRICT PEDAGOGICAL CALIBRATION INSTRUCTIONS ===');
-    buffer.writeln('CRITICAL: DO NOT give generic or random chatbot responses like standard ChatGPT. Your answer must strictly align with the student\'s exact discipline, department, and semester level:');
+    buffer.writeln(
+      'CRITICAL: DO NOT give generic or random chatbot responses like standard ChatGPT. Your answer must strictly align with the student\'s exact discipline, department, and semester level:',
+    );
 
     if (profile.educationType == EducationType.school) {
-      if (profile.schoolGrade.contains('9th') || profile.schoolGrade.contains('10th') || profile.schoolGrade.contains('Matric')) {
-        buffer.writeln('- TARGET: Pakistani Secondary School Certificate (Matric 9th/10th Board Exams - FBISE / Punjab / Sindh / KPK / Balochistan).');
-        buffer.writeln('- DEPTH & TONE: Keep concepts foundational, intuitive, and textbook-oriented. Use clear everyday analogies.');
-        buffer.writeln('- EXAM FORMAT: Structure for 2-3 mark Short Questions and 5-mark Long Questions with labeled points. Avoid advanced calculus or college-level terminology.');
+      if (profile.schoolGrade.contains('9th') ||
+          profile.schoolGrade.contains('10th') ||
+          profile.schoolGrade.contains('Matric')) {
+        buffer.writeln(
+          '- TARGET: Pakistani Secondary School Certificate (Matric 9th/10th Board Exams - FBISE / Punjab / Sindh / KPK / Balochistan).',
+        );
+        buffer.writeln(
+          '- DEPTH & TONE: Keep concepts foundational, intuitive, and textbook-oriented. Use clear everyday analogies.',
+        );
+        buffer.writeln(
+          '- EXAM FORMAT: Structure for 2-3 mark Short Questions and 5-mark Long Questions with labeled points. Avoid advanced calculus or college-level terminology.',
+        );
       } else {
-        buffer.writeln('- TARGET: Intermediate / Higher Secondary (FSc Pre-Medical, FSc Pre-Engineering, ICS, I.Com, FA).');
-        buffer.writeln('- DEPTH & TONE: Emphasize board exam definitions, precise SI units, dimensional formulas, and structured derivations.');
+        buffer.writeln(
+          '- TARGET: Intermediate / Higher Secondary (FSc Pre-Medical, FSc Pre-Engineering, ICS, I.Com, FA).',
+        );
+        buffer.writeln(
+          '- DEPTH & TONE: Emphasize board exam definitions, precise SI units, dimensional formulas, and structured derivations.',
+        );
         if (profile.schoolCourse.toLowerCase().contains('medical')) {
-          buffer.writeln('- MEDICAL STREAM: Emphasize physiological mechanisms, cellular structures, biological terminology, and high-yield MDCAT entry test points.');
+          buffer.writeln(
+            '- MEDICAL STREAM: Emphasize physiological mechanisms, cellular structures, biological terminology, and high-yield MDCAT entry test points.',
+          );
         } else if (profile.schoolCourse.toLowerCase().contains('engineering')) {
-          buffer.writeln('- ENGINEERING STREAM: Emphasize vector calculus, physics free-body diagrams, mathematical proofs, and ECAT formulas.');
-        } else if (profile.schoolCourse.toLowerCase().contains('ics') || profile.schoolCourse.toLowerCase().contains('computer')) {
-          buffer.writeln('- ICS STREAM: Emphasize C/C++ language loops, arrays, pointers, data types, and Board exam programming questions.');
-        } else if (profile.schoolCourse.toLowerCase().contains('commerce') || profile.schoolCourse.toLowerCase().contains('i.com')) {
-          buffer.writeln('- COMMERCE STREAM: Emphasize double-entry bookkeeping, debit & credit rules, journal to ledger, and financial statements.');
+          buffer.writeln(
+            '- ENGINEERING STREAM: Emphasize vector calculus, physics free-body diagrams, mathematical proofs, and ECAT formulas.',
+          );
+        } else if (profile.schoolCourse.toLowerCase().contains('ics') ||
+            profile.schoolCourse.toLowerCase().contains('computer')) {
+          buffer.writeln(
+            '- ICS STREAM: Emphasize C/C++ language loops, arrays, pointers, data types, and Board exam programming questions.',
+          );
+        } else if (profile.schoolCourse.toLowerCase().contains('commerce') ||
+            profile.schoolCourse.toLowerCase().contains('i.com')) {
+          buffer.writeln(
+            '- COMMERCE STREAM: Emphasize double-entry bookkeeping, debit & credit rules, journal to ledger, and financial statements.',
+          );
         }
       }
     } else {
       // University
-      buffer.writeln('- TARGET: Higher Education / University Level at ${profile.universityName} (${profile.program}, ${profile.semester}).');
-      buffer.writeln('- DEPTH & TONE: Professional academic rigor. Use precise industry terminology, theoretical foundations, and university examination standards.');
+      buffer.writeln(
+        '- TARGET: Higher Education / University Level at ${profile.universityName} (${profile.program}, ${profile.semester}).',
+      );
+      buffer.writeln(
+        '- DEPTH & TONE: Professional academic rigor. Use precise industry terminology, theoretical foundations, and university examination standards.',
+      );
 
       final prog = profile.program.toLowerCase();
-      if (prog.contains('computer') || prog.contains('software') || prog.contains('artificial intelligence') || prog.contains('data science') || prog.contains('it')) {
-        buffer.writeln('- CS/SE/IT DISCIPLINE: Provide production-quality, runnable code (C#, Python, C++, Java, or SQL) with proper syntax highlighting.');
-        buffer.writeln('- Explain algorithm logic, state Big-O Time & Space Complexity explicitly, and discuss edge cases.');
-        buffer.writeln('- Address relevant university topics (OOP, Data Structures, Operating Systems, DBMS/SQL, Computer Networks, Software Architecture).');
-      } else if (prog.contains('business') || prog.contains('bba') || prog.contains('accounting') || prog.contains('finance') || prog.contains('economics')) {
-        buffer.writeln('- BUSINESS/MANAGEMENT: Analyze using formal frameworks (SWOT, 4Ps, Porter\'s Five Forces, Accounting Equations, Financial Ratios).');
-      } else if (prog.contains('medical') || prog.contains('mbbs') || prog.contains('pharm') || prog.contains('dpt')) {
-        buffer.writeln('- MEDICAL/HEALTH SCIENCES: Address anatomy, pathophysiology, clinical presentation, pharmacodynamics, and differential diagnoses.');
-      } else if (prog.contains('engineering') || prog.contains('mechanical') || prog.contains('electrical') || prog.contains('civil')) {
-        buffer.writeln('- ENGINEERING DISCIPLINE: State governing differential equations, boundary conditions, free-body diagrams, and step-by-step engineering calculations with units.');
+      if (prog.contains('computer') ||
+          prog.contains('software') ||
+          prog.contains('artificial intelligence') ||
+          prog.contains('data science') ||
+          prog.contains('it')) {
+        buffer.writeln(
+          '- CS/SE/IT DISCIPLINE: Provide production-quality, runnable code (C#, Python, C++, Java, or SQL) with proper syntax highlighting.',
+        );
+        buffer.writeln(
+          '- Explain algorithm logic, state Big-O Time & Space Complexity explicitly, and discuss edge cases.',
+        );
+        buffer.writeln(
+          '- Address relevant university topics (OOP, Data Structures, Operating Systems, DBMS/SQL, Computer Networks, Software Architecture).',
+        );
+      } else if (prog.contains('business') ||
+          prog.contains('bba') ||
+          prog.contains('accounting') ||
+          prog.contains('finance') ||
+          prog.contains('economics')) {
+        buffer.writeln(
+          '- BUSINESS/MANAGEMENT: Analyze using formal frameworks (SWOT, 4Ps, Porter\'s Five Forces, Accounting Equations, Financial Ratios).',
+        );
+      } else if (prog.contains('medical') ||
+          prog.contains('mbbs') ||
+          prog.contains('pharm') ||
+          prog.contains('dpt')) {
+        buffer.writeln(
+          '- MEDICAL/HEALTH SCIENCES: Address anatomy, pathophysiology, clinical presentation, pharmacodynamics, and differential diagnoses.',
+        );
+      } else if (prog.contains('engineering') ||
+          prog.contains('mechanical') ||
+          prog.contains('electrical') ||
+          prog.contains('civil')) {
+        buffer.writeln(
+          '- ENGINEERING DISCIPLINE: State governing differential equations, boundary conditions, free-body diagrams, and step-by-step engineering calculations with units.',
+        );
       } else if (prog.contains('law') || prog.contains('llb')) {
-        buffer.writeln('- LAW/LEGAL STUDIES: Cite relevant statutory sections (Constitution of Pakistan 1973, PPC, CrPC) and legal doctrines.');
+        buffer.writeln(
+          '- LAW/LEGAL STUDIES: Cite relevant statutory sections (Constitution of Pakistan 1973, PPC, CrPC) and legal doctrines.',
+        );
       }
     }
 
     buffer.writeln('\n=== OUTPUT STRUCTURE ===');
-    buffer.writeln('1. If the student sends a greeting (e.g. "hi", "salam", "hello", "kese ho"), greet them warmly by their name (${profile.name}), acknowledge their program (${profile.program.isNotEmpty ? profile.program : profile.academicLevelString}), and ask what topic or chapter they want to master.');
-    buffer.writeln('2. For academic questions, structure your answer into:');
+    buffer.writeln(
+      '1. ONLY if the student\'s message is purely a greeting (e.g. "hi", "salam", "hello", "kese ho") with NO academic question, greet them warmly by their name (${profile.name}), acknowledge their program (${profile.program.isNotEmpty ? profile.program : profile.academicLevelString}), and ask what topic or chapter they want to master.',
+    );
+    buffer.writeln('2. For ANY academic question (even short ones like "What is AI?"), NEVER reply with just a greeting — immediately answer the question thoroughly using:');
     buffer.writeln('   ### 1. Conceptual Breakdown & Syllabus Definition');
-    buffer.writeln('   ### 2. Practical Worked Exam Example (Worked Calculation, Complete Code Snippet, or Domain Case Study)');
+    buffer.writeln(
+      '   ### 2. Practical Worked Exam Example (Worked Calculation, Complete Code Snippet, or Domain Case Study)',
+    );
     buffer.writeln('   ### 3. 3-Point Revision Summary for Exam Prep');
-    buffer.writeln('3. Format code in clean markdown code blocks (```csharp, ```python, ```sql, etc.).');
-    buffer.writeln('4. Format equations clearly without unreadable raw LaTeX backslash codes.');
-    buffer.writeln('5. If language is Urdu or Roman Urdu, respond in natural academic Urdu with English terms in parentheses.');
+    buffer.writeln(
+      '3. Format code in clean markdown code blocks (```csharp, ```python, ```sql, etc.).',
+    );
+    buffer.writeln(
+      '4. Format equations clearly without unreadable raw LaTeX backslash codes.',
+    );
+    buffer.writeln(
+      '5. If language is Urdu or Roman Urdu, respond in natural academic Urdu with English terms in parentheses.',
+    );
 
     return buffer.toString();
-  }
-
-  /// Free, zero-key public AI text engine (Tier 2 Fallback)
-  Future<String?> _callFreeOpenAiApi({
-    required String question,
-    required String systemInstruction,
-  }) async {
-    // Strategy 1: High-Speed OpenAI-Fast Anonymous Model via POST
-    try {
-      final url = Uri.parse('https://text.pollinations.ai/');
-      final response = await http
-          .post(
-            url,
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'text/plain, */*',
-            },
-            body: jsonEncode({
-              'messages': [
-                {'role': 'system', 'content': systemInstruction},
-                {'role': 'user', 'content': question},
-              ],
-              'model': 'openai-fast',
-              'jsonMode': false,
-            }),
-          )
-          .timeout(const Duration(seconds: 14));
-
-      if (response.statusCode == 200) {
-        final text = response.body.trim();
-        if (text.isNotEmpty &&
-            !text.contains('<!DOCTYPE html>') &&
-            !text.startsWith('Error:') &&
-            !text.contains('FREE_LIMIT') &&
-            !text.startsWith('{"status":400') &&
-            !text.startsWith('{"status":402')) {
-          return text;
-        }
-      }
-    } catch (e) {
-      debugPrint('Free AI API Strategy 1 (openai-fast) failed: $e');
-    }
-
-    // Strategy 2: Standard OpenAI model with Seed
-    try {
-      final url = Uri.parse('https://text.pollinations.ai/');
-      final response = await http
-          .post(
-            url,
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'text/plain, */*',
-            },
-            body: jsonEncode({
-              'messages': [
-                {'role': 'system', 'content': systemInstruction},
-                {'role': 'user', 'content': question},
-              ],
-              'model': 'openai',
-              'seed': 42,
-            }),
-          )
-          .timeout(const Duration(seconds: 14));
-
-      if (response.statusCode == 200) {
-        final text = response.body.trim();
-        if (text.isNotEmpty &&
-            !text.contains('<!DOCTYPE html>') &&
-            !text.startsWith('Error:') &&
-            !text.contains('FREE_LIMIT') &&
-            !text.startsWith('{"status":400') &&
-            !text.startsWith('{"status":402')) {
-          return text;
-        }
-      }
-    } catch (e) {
-      debugPrint('Free AI API Strategy 2 (openai) failed: $e');
-    }
-
-    // Strategy 3: Lightweight concise query via GET (short query string)
-    try {
-      final concisePrompt = 'Syllabus Question: $question\nExplain thoroughly with clear academic points and exam examples.';
-      final encoded = Uri.encodeComponent(concisePrompt);
-      final url = Uri.parse('https://text.pollinations.ai/$encoded?model=openai-fast');
-      final response = await http.get(url, headers: {'Accept': 'text/plain, */*'}).timeout(const Duration(seconds: 10));
-      if (response.statusCode == 200) {
-        final text = response.body.trim();
-        if (text.isNotEmpty &&
-            !text.contains('<!DOCTYPE html>') &&
-            !text.startsWith('Error:') &&
-            !text.contains('FREE_LIMIT') &&
-            !text.startsWith('{"status":400') &&
-            !text.startsWith('{"status":402')) {
-          return text;
-        }
-      }
-    } catch (e) {
-      debugPrint('Free AI API Strategy 3 (GET) failed: $e');
-    }
-
-    return null;
-  }
-
-  Future<String?> _callGeminiApi({
-    required String question,
-    required String systemInstruction,
-    String? imageBase64,
-  }) async {
-    final cleanKey = apiKey.trim().replaceAll('"', '').replaceAll("'", "");
-    if (cleanKey.isEmpty) {
-      lastApiError = 'No API key configured';
-      return null;
-    }
-
-    final userParts = <Map<String, dynamic>>[];
-    userParts.add({
-      'text': '$systemInstruction\n\nStudent Question: $question',
-    });
-
-    if (imageBase64 != null && imageBase64.isNotEmpty) {
-      userParts.add({
-        'inlineData': {'mimeType': 'image/jpeg', 'data': imageBase64},
-      });
-    }
-
-    final requestBody = jsonEncode({
-      'contents': [
-        {'role': 'user', 'parts': userParts},
-      ],
-      'generationConfig': {'temperature': 0.7, 'maxOutputTokens': 1500},
-    });
-
-    final candidateModels = [
-      _model,
-      'gemini-1.5-flash',
-      'gemini-2.0-flash',
-      'gemini-1.5-pro',
-    ];
-    final modelsToTry = <String>[];
-    for (final m in candidateModels) {
-      if (!modelsToTry.contains(m)) modelsToTry.add(m);
-    }
-
-    for (final modelName in modelsToTry) {
-      final url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$cleanKey',
-      );
-
-      try {
-        final response = await http
-            .post(
-              url,
-              headers: {'Content-Type': 'application/json'},
-              body: requestBody,
-            )
-            .timeout(const Duration(seconds: 15));
-
-        lastStatusCode = response.statusCode;
-
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          final candidates = data['candidates'] as List?;
-          if (candidates != null && candidates.isNotEmpty) {
-            final content = candidates[0]['content'];
-            final partsList = content?['parts'] as List?;
-            if (partsList != null && partsList.isNotEmpty) {
-              final text = partsList[0]['text'] as String?;
-              if (text != null && text.trim().isNotEmpty) {
-                lastApiError = null;
-                _model = modelName;
-                return text;
-              }
-            }
-          }
-        } else {
-          lastApiError =
-              'Model $modelName HTTP ${response.statusCode}: ${response.body}';
-          debugPrint(
-            'Gemini API Error ($modelName): Status ${response.statusCode} - ${response.body}',
-          );
-          if (response.statusCode == 404) {
-            continue; // Try fallback model
-          }
-        }
-      } catch (e) {
-        lastApiError = 'Model $modelName Exception: $e';
-        debugPrint('Gemini API Exception ($modelName): $e');
-      }
-    }
-    return null;
   }
 
   /// Curriculum-aligned academic knowledge engine (FR-02 & Registration Guide Section F)
@@ -416,14 +388,16 @@ class AiTutorService {
     final bool isUrdu =
         language == 'Urdu' || RegExp(r'[\u0600-\u06FF]').hasMatch(question);
 
-    final studentName = profile?.name.isNotEmpty == true ? profile!.name : 'Student';
+    final studentName = profile?.name.isNotEmpty == true
+        ? profile!.name
+        : 'Student';
     final department = (profile?.educationType == EducationType.university)
         ? (profile?.program.isNotEmpty == true
-            ? '${profile!.program}${profile.semester.isNotEmpty ? " (${profile.semester})" : ""}'
-            : studentLevel)
+              ? '${profile!.program}${profile.semester.isNotEmpty ? " (${profile.semester})" : ""}'
+              : studentLevel)
         : (profile?.schoolGrade.isNotEmpty == true
-            ? '${profile!.schoolGrade}${profile.schoolCourse.isNotEmpty ? " • ${profile.schoolCourse}" : ""}'
-            : studentLevel);
+              ? '${profile!.schoolGrade}${profile.schoolCourse.isNotEmpty ? " • ${profile.schoolCourse}" : ""}'
+              : studentLevel);
 
     // Greetings & Casual check
     final trimmed = q.trim();

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/community_model.dart';
+import 'storage_service.dart';
 
 class CommunityService extends ChangeNotifier {
   static final CommunityService _instance = CommunityService._internal();
@@ -8,7 +9,26 @@ class CommunityService extends ChangeNotifier {
     _initSampleCommunity();
   }
 
+  static const String _storageKey = 'community_posts';
   final List<CommunityPost> _posts = [];
+
+  Future<void> loadFromStorage() async {
+    final raw = await StorageService().loadJson(_storageKey, global: true);
+    if (raw is List && raw.isNotEmpty) {
+      _posts
+        ..clear()
+        ..addAll(raw.map((p) => CommunityPost.fromJson(Map<String, dynamic>.from(p))));
+      notifyListeners();
+    }
+  }
+
+  void _persist() {
+    StorageService().saveJson(
+      _storageKey,
+      _posts.map((p) => p.toJson()).toList(),
+      global: true,
+    );
+  }
   List<CommunityPost> get visiblePosts =>
       _posts.where((p) => !p.isHidden).toList();
 
@@ -93,6 +113,7 @@ class CommunityService extends ChangeNotifier {
         timestamp: DateTime.now(),
       ),
     );
+    _persist();
     notifyListeners();
   }
 
@@ -106,24 +127,28 @@ class CommunityService extends ChangeNotifier {
         timestamp: DateTime.now(),
       ),
     );
+    _persist();
     notifyListeners();
   }
 
   void toggleResolved(String postId) {
     final post = _posts.firstWhere((p) => p.id == postId);
     post.isResolved = !post.isResolved;
+    _persist();
     notifyListeners();
   }
 
   void flagPost(String postId) {
     final post = _posts.firstWhere((p) => p.id == postId);
     post.flagsCount += 1;
+    _persist();
     notifyListeners();
   }
 
   void upvotePost(String postId) {
     final post = _posts.firstWhere((p) => p.id == postId);
     post.upvotes += 1;
+    _persist();
     notifyListeners();
   }
 
@@ -131,12 +156,14 @@ class CommunityService extends ChangeNotifier {
   void adminHidePost(String postId) {
     final post = _posts.firstWhere((p) => p.id == postId);
     post.isHidden = true;
+    _persist();
     notifyListeners();
   }
 
   void adminDismissFlags(String postId) {
     final post = _posts.firstWhere((p) => p.id == postId);
     post.flagsCount = 0;
+    _persist();
     notifyListeners();
   }
 }

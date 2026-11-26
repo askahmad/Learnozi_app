@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import '../models/quiz_model.dart';
-import 'ai_tutor_service.dart';
-import 'quota_service.dart';
 import 'adaptive_service.dart';
+import 'gemini_client.dart';
+import 'quota_service.dart';
+import 'storage_service.dart';
 
 class QuizService extends ChangeNotifier {
   static final QuizService _instance = QuizService._internal();
@@ -13,8 +13,26 @@ class QuizService extends ChangeNotifier {
     _initHistory();
   }
 
+  static const String _storageKey = 'quiz_attempts';
   final List<QuizAttempt> _pastAttempts = [];
   List<QuizAttempt> get pastAttempts => List.unmodifiable(_pastAttempts);
+
+  Future<void> loadFromStorage() async {
+    final raw = await StorageService().loadJson(_storageKey);
+    if (raw is List && raw.isNotEmpty) {
+      _pastAttempts
+        ..clear()
+        ..addAll(raw.map((a) => QuizAttempt.fromJson(Map<String, dynamic>.from(a))));
+      notifyListeners();
+    }
+  }
+
+  void _persist() {
+    StorageService().saveJson(
+      _storageKey,
+      _pastAttempts.map((a) => a.toJson()).toList(),
+    );
+  }
 
   void _initHistory() {
     _pastAttempts.add(
@@ -55,7 +73,7 @@ class QuizService extends ChangeNotifier {
     );
   }
 
-  /// Generates questions using Gemini API (FR-04)
+  /// Generates questions using Gemini API or Free AI Engine (FR-04)
   Future<List<QuizQuestion>> generateQuiz({
     required String topic,
     required String subject,
@@ -67,16 +85,6 @@ class QuizService extends ChangeNotifier {
     if (!QuotaService().canMakeAiRequest()) {
       throw Exception('Daily AI request limit reached. Resets at midnight.');
     }
-
-    final apiKey = AiTutorService.apiKey;
-    if (apiKey.isEmpty) {
-      // Fallback offline mock quiz so students can test even without key
-      return _generateOfflineFallbackQuestions(topic, subject, quizType, count);
-    }
-
-    final url = Uri.parse(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=$apiKey',
-    );
 
     final weakTopicClause = weakTopics.isNotEmpty
         ? 'Give extra focus and attention to these identified weak topics: ${weakTopics.join(', ')}.'
@@ -102,29 +110,25 @@ Return ONLY valid JSON matching this exact structure:
 For short or long questions, set "type" to "short" or "long", omit or provide empty "options", and give the ideal model answer in "answer".
 ''';
 
+    // 1. Tier 1: Google Gemini (via shared GeminiClient)
     try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'contents': [
-            {
-              'parts': [{'text': prompt}]
-            }
-          ],
-          'generationConfig': {
-            'response_mime_type': 'application/json',
-            'temperature': 0.3,
+      final rawText = await GeminiClient.generateContent(
+        contents: [
+          {
+            'role': 'user',
+            'parts': [
+              {'text': prompt}
+            ],
           }
-        }),
+        ],
+        temperature: 0.3,
+        jsonMode: true,
+        timeout: const Duration(seconds: 15),
       );
 
-      if (response.statusCode == 200) {
-        final body = jsonDecode(response.body);
-        final rawText = body['candidates']?[0]?['content']?['parts']?[0]?['text'] ?? '';
-        final parsed = jsonDecode(rawText);
+      if (rawText != null && rawText.isNotEmpty) {
+        final parsed = jsonDecode(GeminiClient.stripMarkdownFences(rawText));
         final questionsJson = parsed['questions'] as List?;
-
         if (questionsJson != null && questionsJson.isNotEmpty) {
           QuotaService().consumeAiRequest();
           return questionsJson.map((q) => QuizQuestion.fromJson(q)).toList();
@@ -134,8 +138,57 @@ For short or long questions, set "type" to "short" or "long", omit or provide em
       debugPrint('Gemini quiz generation error: $e');
     }
 
-    // Fallback if parsing or API fails
+    // 2. Tier 2: Free Open AI Engine (Allows real quiz generation for ANY course without API key)
+    try {
+      final freeQuestions = await _generateFreeAiQuizQuestions(
+        topic: topic,
+        subject: subject,
+        studentLevel: studentLevel,
+        quizType: quizType,
+        count: count,
+        prompt: prompt,
+      );
+      if (freeQuestions != null && freeQuestions.isNotEmpty) {
+        QuotaService().consumeAiRequest();
+        return freeQuestions;
+      }
+    } catch (e) {
+      debugPrint('Free AI quiz generation error: $e');
+    }
+
+    // 3. Tier 3: Fallback offline mock quiz so students can test even when offline
     return _generateOfflineFallbackQuestions(topic, subject, quizType, count);
+  }
+
+  /// Free AI Quiz generator for zero-cost operation across any department
+  Future<List<QuizQuestion>?> _generateFreeAiQuizQuestions({
+    required String topic,
+    required String subject,
+    required String studentLevel,
+    required String quizType,
+    required int count,
+    required String prompt,
+  }) async {
+    final cleanText = await GeminiClient.callFreeOpenAi(
+      messages: [
+        {
+          'role': 'system',
+          'content':
+              'You are an academic exam generator. Return ONLY raw valid JSON with no markdown formatting or backticks.'
+        },
+        {'role': 'user', 'content': prompt},
+      ],
+      jsonMode: true,
+    );
+
+    if (cleanText != null && cleanText.isNotEmpty) {
+      final parsed = jsonDecode(cleanText);
+      final questionsJson = parsed['questions'] as List?;
+      if (questionsJson != null && questionsJson.isNotEmpty) {
+        return questionsJson.map((q) => QuizQuestion.fromJson(q)).toList();
+      }
+    }
+    return null;
   }
 
   /// AI answer grader for short and long responses (FR-04)
@@ -144,21 +197,9 @@ For short or long questions, set "type" to "short" or "long", omit or provide em
     required String modelAnswer,
     required String studentAnswer,
   }) async {
-    final apiKey = AiTutorService.apiKey;
-    if (apiKey.isEmpty) {
-      // Offline heuristic grader
-      final isNotEmpty = studentAnswer.trim().length > 15;
-      return {
-        'score': isNotEmpty ? 0.85 : 0.4,
-        'feedback': isNotEmpty
-            ? 'Good attempt matching main points.'
-            : 'Answer is too brief; please elaborate with key concepts.',
-      };
+    if (studentAnswer.trim().isEmpty) {
+      return {'score': 0.0, 'feedback': 'No answer was provided.'};
     }
-
-    final url = Uri.parse(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=$apiKey',
-    );
 
     final prompt = '''
 Grade the student's answer based on the question and model answer.
@@ -174,37 +215,72 @@ Return ONLY valid JSON:
 Score must be a number between 0.0 and 1.0.
 ''';
 
+    // Tier 1: Gemini
     try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'contents': [
-            {
-              'parts': [{'text': prompt}]
-            }
-          ],
-          'generationConfig': {
-            'response_mime_type': 'application/json',
-            'temperature': 0.2,
+      final rawText = await GeminiClient.generateContent(
+        contents: [
+          {
+            'role': 'user',
+            'parts': [
+              {'text': prompt}
+            ],
           }
-        }),
+        ],
+        temperature: 0.2,
+        jsonMode: true,
+        timeout: const Duration(seconds: 12),
       );
-
-      if (response.statusCode == 200) {
-        final body = jsonDecode(response.body);
-        final text = body['candidates']?[0]?['content']?['parts']?[0]?['text'] ?? '';
-        final parsed = jsonDecode(text);
+      if (rawText != null && rawText.isNotEmpty) {
+        final parsed = jsonDecode(GeminiClient.stripMarkdownFences(rawText));
         return {
-          'score': (parsed['score'] as num?)?.toDouble() ?? 0.75,
+          'score': (parsed['score'] as num?)?.toDouble().clamp(0.0, 1.0) ?? 0.75,
           'feedback': parsed['feedback'] ?? 'Answer reviewed.',
         };
       }
     } catch (e) {
-      debugPrint('Answer grading error: $e');
+      debugPrint('Gemini grading error: $e');
     }
 
-    return {'score': 0.8, 'feedback': 'Good conceptual understanding demonstrated.'};
+    // Tier 2: Free OpenAI-compatible grading
+    try {
+      final freeText = await GeminiClient.callFreeOpenAi(
+        messages: [
+          {
+            'role': 'system',
+            'content': 'You are a strict academic grader. Return ONLY valid JSON with score (0.0-1.0) and feedback.'
+          },
+          {'role': 'user', 'content': prompt},
+        ],
+        jsonMode: true,
+      );
+      if (freeText != null && freeText.isNotEmpty) {
+        final parsed = jsonDecode(freeText);
+        return {
+          'score': (parsed['score'] as num?)?.toDouble().clamp(0.0, 1.0) ?? 0.75,
+          'feedback': parsed['feedback'] ?? 'Answer reviewed.',
+        };
+      }
+    } catch (e) {
+      debugPrint('Free AI grading error: $e');
+    }
+
+    // Tier 3: Keyword overlap heuristic fallback (offline)
+    final modelKeywords = modelAnswer
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), '')
+        .split(RegExp(r'\s+'))
+        .where((w) => w.length > 3)
+        .toSet();
+    final studentLower = studentAnswer.toLowerCase();
+    final matches = modelKeywords.where((k) => studentLower.contains(k)).length;
+    final overlap = modelKeywords.isEmpty ? 0.5 : (matches / modelKeywords.length);
+    final score = overlap.clamp(0.2, 0.95);
+    return {
+      'score': score,
+      'feedback': score >= 0.7
+          ? 'Good conceptual match with key syllabus terms.'
+          : 'Missing several key terms from the model answer; review the core definition.',
+    };
   }
 
   /// Record submitted attempt and update adaptive engine
@@ -220,6 +296,7 @@ Score must be a number between 0.0 and 1.0.
       );
     }
 
+    _persist();
     notifyListeners();
   }
 

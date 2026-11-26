@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/flashcard_model.dart';
+import 'storage_service.dart';
 import 'user_service.dart';
 
 class FlashcardService extends ChangeNotifier {
@@ -9,6 +10,7 @@ class FlashcardService extends ChangeNotifier {
     _initSampleCards();
   }
 
+  static const String _storageKey = 'flashcards_data';
   final List<Flashcard> _cards = [];
   List<Flashcard> get cards => List.unmodifiable(_cards);
 
@@ -17,6 +19,27 @@ class FlashcardService extends ChangeNotifier {
 
   int _totalReviewsCompleted = 8;
   int get totalReviewsCompleted => _totalReviewsCompleted;
+
+  Future<void> loadFromStorage() async {
+    final raw = await StorageService().loadJson(_storageKey);
+    if (raw is Map) {
+      final list = raw['cards'] as List?;
+      if (list != null) {
+        _cards
+          ..clear()
+          ..addAll(list.map((c) => Flashcard.fromJson(Map<String, dynamic>.from(c))));
+      }
+      _totalReviewsCompleted = (raw['totalReviews'] as num?)?.toInt() ?? _totalReviewsCompleted;
+      notifyListeners();
+    }
+  }
+
+  void _persist() {
+    StorageService().saveJson(_storageKey, {
+      'cards': _cards.map((c) => c.toJson()).toList(),
+      'totalReviews': _totalReviewsCompleted,
+    });
+  }
 
   void _initSampleCards() {
     _cards.addAll([
@@ -76,6 +99,7 @@ class FlashcardService extends ChangeNotifier {
         category: category,
       ),
     );
+    _persist();
     notifyListeners();
   }
 
@@ -93,11 +117,13 @@ class FlashcardService extends ChangeNotifier {
       UserService().unlockBadge('flashcard_champ');
     }
 
+    _persist();
     notifyListeners();
   }
 
   void deleteFlashcard(String id) {
     _cards.removeWhere((c) => c.id == id);
+    _persist();
     notifyListeners();
   }
 }

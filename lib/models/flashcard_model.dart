@@ -63,4 +63,30 @@ class Flashcard {
 
     nextReviewDate = DateTime.now().add(Duration(days: intervalDays));
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'frontQuestion': frontQuestion,
+    'backAnswer': backAnswer,
+    'category': category,
+    'easeFactor': easeFactor,
+    'intervalDays': intervalDays,
+    'repetitions': repetitions,
+    'nextReviewDate': nextReviewDate.toIso8601String(),
+    'lastReviewed': lastReviewed.toIso8601String(),
+  };
+
+  factory Flashcard.fromJson(Map<String, dynamic> json) => Flashcard(
+    id: json['id'] ?? '',
+    frontQuestion: json['frontQuestion'] ?? '',
+    backAnswer: json['backAnswer'] ?? '',
+    category: json['category'] ?? 'General',
+    easeFactor: (json['easeFactor'] as num?)?.toDouble() ?? 2.5,
+    intervalDays: (json['intervalDays'] as num?)?.toInt() ?? 1,
+    repetitions: (json['repetitions'] as num?)?.toInt() ?? 0,
+    nextReviewDate:
+        DateTime.tryParse(json['nextReviewDate'] ?? '') ?? DateTime.now(),
+    lastReviewed:
+        DateTime.tryParse(json['lastReviewed'] ?? '') ?? DateTime.now(),
+  );
 }

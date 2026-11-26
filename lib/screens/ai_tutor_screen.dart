@@ -30,10 +30,113 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
   bool _isLoading = false;
   late String _selectedLanguage;
   late String _selectedLevel;
+  String _selectedSubject = '';
 
   List<String> get _quickSuggestions {
     final isUrdu = _selectedLanguage == 'Urdu';
     final profile = _userService.profile;
+
+    // 1. If student specifically selected a subject, prioritize that exact course syllabus
+    if (_selectedSubject.isNotEmpty) {
+      final sub = _selectedSubject.toLowerCase();
+      if (sub.contains('database') || sub.contains('dbms') || sub.contains('sql')) {
+        return isUrdu
+            ? [
+                'ڈیٹا بیس نارملائزیشن (1NF-3NF) مع مثال',
+                'ACID خصوصیات اور ٹرانزیکشن مینجمنٹ',
+                'SQL میں INNER اور LEFT JOIN میں فرق',
+                'انڈیکسنگ (B-Tree) کا ڈیٹا بیس میں فائدہ',
+              ]
+            : [
+                'Explain Normalization (1NF, 2NF, 3NF) with table',
+                'ACID Properties in DBMS with banking scenario',
+                'SQL INNER JOIN vs LEFT JOIN with query',
+                'Primary Key vs Foreign Key constraints',
+              ];
+      } else if (sub.contains('data structures') || sub.contains('dsa')) {
+        return isUrdu
+            ? [
+                'بائنری سرچ ٹری کا الگورتھم اور ٹائم کمپلیکسٹی',
+                'اسٹیک اور کیو (Stack vs Queue) میں فرق',
+                'کوئیک سورٹ اور مرج سورٹ کا موازنہ',
+                'گراف میں بی ایف ایس اور ڈی ایف ایس (BFS vs DFS)',
+              ]
+            : [
+                'Binary Search Tree insertion & Big-O Time Complexity',
+                'Stack vs Queue implementation in C++',
+                'Merge Sort vs Quick Sort comparison',
+                'Graph BFS vs DFS traversal logic',
+              ];
+      } else if (sub.contains('operating systems') || sub.contains('os')) {
+        return isUrdu
+            ? [
+                'پروسیس اور تھریڈ میں بنیادی فرق',
+                'ڈیڈ لاک اور کاف مین کی 4 شرائط',
+                'راؤنڈ روبن سی پی یو شیڈولنگ الگورتھم',
+                'ورچوئل میموری اور پیجنگ کا طریقہ کار',
+              ]
+            : [
+                'Difference between Process and Thread',
+                'Explain Deadlock and 4 Coffman conditions',
+                'Round Robin CPU scheduling calculation',
+                'Virtual Memory & Paging mechanics',
+              ];
+      } else if (sub.contains('oop') || sub.contains('object oriented')) {
+        return isUrdu
+            ? [
+                'او او پی کے چار بنیادی ستون مع کوڈ مثال',
+                'پولیمورفزم اور میتھڈ اوور رائڈنگ',
+                'کلاس اور آبجیکٹ میں امتحانی فرق',
+              ]
+            : [
+                '4 Pillars of OOP with C# / C++ code',
+                'Polymorphism: Overloading vs Overriding',
+                'Abstract Class vs Interface with example',
+              ];
+      } else if (sub.contains('physics')) {
+        return isUrdu
+            ? [
+                'نیوٹن کے قوانین کی امتحانی وضاحت',
+                'سینٹری پیٹل فورس کا فارمولا اور اخذ Fc=mv²/r',
+                'ورک انرجی تھیورم کا ثبوت',
+                'فیراڈے کا قانون برائے الیکٹرو میگنیٹک انڈکشن',
+              ]
+            : [
+                'Explain Newton\'s Laws with exam derivation',
+                'Centripetal force derivation Fc = mv²/r',
+                'Work-Energy Principle with proof',
+                'Faraday\'s Law of Electromagnetic Induction',
+              ];
+      } else if (sub.contains('biology') || sub.contains('anatomy') || sub.contains('physiology')) {
+        return isUrdu
+            ? [
+                'مائیٹوسس اور میوسس میں تفصیلی فرق',
+                'ڈی این اے کی ساخت اور واٹسن کرک ماڈل',
+                'نیوران میں ایکشن پوٹینشل کے مراحل',
+                'اینٹی بائیوٹکس کے طریقہ کار اور اقسام',
+              ]
+            : [
+                'Mitosis vs Meiosis stages and ploidy',
+                'Action Potential phases in neurons',
+                'DNA Double Helix & Watson-Crick Model',
+                'Mechanisms of Action of Antibiotics',
+              ];
+      } else if (sub.contains('accounting') || sub.contains('finance') || sub.contains('commerce')) {
+        return isUrdu
+            ? [
+                'ڈیبٹ اور کریڈٹ کے سنہری اصول مع مثالیں',
+                'بیلنس شیٹ اور انکم اسٹیٹمنٹ کی تیاری',
+                'بینک ری کنسیلیشن اسٹیٹمنٹ کا طریقہ',
+                'ورکنگ کیپیٹل کا حساب لگانے کا فارمولا',
+              ]
+            : [
+                'Golden Rules of Debit & Credit with Journal entries',
+                'Balance Sheet vs Income Statement structure',
+                'Bank Reconciliation Statement with examples',
+                'Working Capital formula and ratio analysis',
+              ];
+      }
+    }
 
     if (profile.educationType == EducationType.university) {
       final p = profile.program.toLowerCase();
@@ -184,6 +287,19 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
     final profileLevel = _userService.profile.academicLevelString;
     _selectedLevel = profileLevel.isNotEmpty ? profileLevel : 'FSc / College';
     _resetWelcomeMessage();
+    _restoreChatHistory();
+  }
+
+  Future<void> _restoreChatHistory() async {
+    final saved = await _aiService.loadChatHistory();
+    if (mounted && saved.isNotEmpty) {
+      setState(() {
+        _messages
+          ..clear()
+          ..addAll(saved);
+      });
+      _scrollToBottom();
+    }
   }
 
   void _resetWelcomeMessage() {
@@ -246,6 +362,7 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
     }
 
     _textController.clear();
+    final priorHistory = List<ChatMessage>.from(_messages);
     final userMsg = ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       text: query,
@@ -257,20 +374,23 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
       _messages.add(userMsg);
       _isLoading = true;
     });
-    _quotaService.consumeAiRequest();
     _scrollToBottom();
 
     try {
-      // Call Multi-tier AI API with full academic profile and weak topics context
+      // Call Multi-tier AI API with full academic profile, active subject, weak topics & conversation history
       final responseText = await _aiService.askTutor(
         question: query,
         studentLevel: _selectedLevel,
         language: _selectedLanguage,
+        activeSubject: _selectedSubject,
         profile: _userService.profile,
         weakTopics: _adaptiveService.weakTopics,
+        conversationHistory: priorHistory,
       );
 
       if (!mounted) return;
+
+      _quotaService.consumeAiRequest();
 
       final aiMsg = ChatMessage(
         id: (DateTime.now().millisecondsSinceEpoch + 1).toString(),
@@ -282,6 +402,7 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
       setState(() {
         _messages.add(aiMsg);
       });
+      _aiService.saveChatHistory(_messages);
     } catch (e) {
       if (!mounted) return;
       final errorMsg = ChatMessage(
@@ -488,6 +609,9 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
               ],
             ),
           ),
+
+          // Dynamic Department Subject Filter Carousel
+          _buildSubjectFilterBar(isDark),
 
           // Chat Messages List
           Expanded(
@@ -840,6 +964,194 @@ class _AiTutorScreenState extends State<AiTutorScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  /// Dynamic Department Subject Filter Carousel for targeted course-specific answers
+  Widget _buildSubjectFilterBar(bool isDark) {
+    final profile = _userService.profile;
+    final recommended = profile.recommendedSubjects;
+    final subjects = ['All Subjects', ...recommended];
+    final isUrdu = _selectedLanguage == 'Urdu';
+
+    return Container(
+      height: 44,
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurfaceElevated : const Color(0xFFF1F5F9),
+        border: Border(
+          bottom: BorderSide(
+            color: isDark ? AppColors.darkBorder : const Color(0xFFE2E8F0),
+          ),
+        ),
+      ),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        itemCount: subjects.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          if (index == subjects.length) {
+            // More subjects button
+            return InkWell(
+              onTap: _showCustomSubjectDialog,
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark ? AppColors.darkBorder : const Color(0xFFCBD5E1),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.add_rounded,
+                      size: 14,
+                      color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isUrdu ? 'دیگر مضامین' : 'More...',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? AppColors.darkTextSecondary : const Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          final subject = subjects[index];
+          final isSelected = _selectedSubject == subject ||
+              (subject == 'All Subjects' && _selectedSubject.isEmpty);
+          final label = subject == 'All Subjects'
+              ? (isUrdu ? 'تمام مضامین' : 'All Subjects')
+              : subject;
+
+          return InkWell(
+            onTap: () {
+              setState(() {
+                _selectedSubject = subject == 'All Subjects' ? '' : subject;
+              });
+              if (_selectedSubject.isNotEmpty) {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      isUrdu
+                          ? 'اب اے آئی ٹیوٹر "$_selectedSubject" کے نصاب پر مرکوز ہے'
+                          : 'Tutor calibrated for: $_selectedSubject',
+                    ),
+                    duration: const Duration(seconds: 2),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            },
+            borderRadius: BorderRadius.circular(16),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? const Color(0xFF4F46E5)
+                    : (isDark ? AppColors.darkSurface : Colors.white),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isSelected
+                      ? const Color(0xFF4F46E5)
+                      : (isDark ? AppColors.darkBorder : const Color(0xFFCBD5E1)),
+                ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFF4F46E5).withValues(alpha: 0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        )
+                      ]
+                    : null,
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected
+                      ? Colors.white
+                      : (isDark ? AppColors.darkTextPrimary : const Color(0xFF334155)),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showCustomSubjectDialog() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final allSubjects = UserProfile.academicSubjects;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return Container(
+          color: isDark ? AppColors.darkSurface : Colors.white,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Select Course / Subject for Targeted Tutoring',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: isDark ? AppColors.darkTextPrimary : const Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: allSubjects.length,
+                  itemBuilder: (context, i) {
+                    final s = allSubjects[i];
+                    return ListTile(
+                      title: Text(
+                        s,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          color: isDark ? AppColors.darkTextPrimary : const Color(0xFF334155),
+                        ),
+                      ),
+                      onTap: () {
+                        setState(() => _selectedSubject = s);
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Tutor calibrated for: $s'),
+                            duration: const Duration(seconds: 2),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

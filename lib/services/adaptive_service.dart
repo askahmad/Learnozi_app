@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/quiz_model.dart';
+import 'storage_service.dart';
 
 class AdaptiveService extends ChangeNotifier {
   static final AdaptiveService _instance = AdaptiveService._internal();
@@ -8,8 +9,28 @@ class AdaptiveService extends ChangeNotifier {
     _initSamplePerformances();
   }
 
+  static const String _storageKey = 'adaptive_performances';
   final Map<String, TopicPerformance> _performances = {};
   List<TopicPerformance> get allTopics => _performances.values.toList();
+
+  Future<void> loadFromStorage() async {
+    final raw = await StorageService().loadJson(_storageKey);
+    if (raw is List && raw.isNotEmpty) {
+      _performances.clear();
+      for (final item in raw) {
+        final perf = TopicPerformance.fromJson(Map<String, dynamic>.from(item));
+        _performances['${perf.subject}: ${perf.topic}'] = perf;
+      }
+      notifyListeners();
+    }
+  }
+
+  void _persist() {
+    StorageService().saveJson(
+      _storageKey,
+      _performances.values.map((p) => p.toJson()).toList(),
+    );
+  }
 
   List<TopicPerformance> get weakTopics =>
       _performances.values.where((t) => t.isWeak).toList();
@@ -91,6 +112,7 @@ class AdaptiveService extends ChangeNotifier {
         avgTimeSeconds: timeTakenSeconds,
       );
     }
+    _persist();
     notifyListeners();
   }
 

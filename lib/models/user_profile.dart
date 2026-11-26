@@ -74,6 +74,50 @@ class UserProfile {
 
   bool get isAdmin => role == 'admin';
 
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'email': email,
+    'phoneNumber': phoneNumber,
+    'educationType': educationType.name,
+    'schoolGrade': schoolGrade,
+    'schoolCourse': schoolCourse,
+    'universityName': universityName,
+    'semester': semester,
+    'program': program,
+    'role': role,
+    'currentStreak': currentStreak,
+    'longestStreak': longestStreak,
+    'lastActiveDate': lastActiveDate.toIso8601String(),
+    'language': language,
+    'earnedBadges': earnedBadges,
+  };
+
+  factory UserProfile.fromJson(Map<String, dynamic> json) => UserProfile(
+    id: json['id'] ?? 'user_101',
+    name: json['name'] ?? '',
+    email: json['email'] ?? '',
+    phoneNumber: json['phoneNumber'] ?? '',
+    educationType: json['educationType'] == 'school'
+        ? EducationType.school
+        : EducationType.university,
+    schoolGrade: json['schoolGrade'] ?? '',
+    schoolCourse: json['schoolCourse'] ?? '',
+    universityName: json['universityName'] ?? '',
+    semester: json['semester'] ?? '',
+    program: json['program'] ?? '',
+    role: json['role'] ?? 'student',
+    currentStreak: (json['currentStreak'] as num?)?.toInt() ?? 1,
+    longestStreak: (json['longestStreak'] as num?)?.toInt() ?? 1,
+    lastActiveDate:
+        DateTime.tryParse(json['lastActiveDate'] ?? '') ?? DateTime.now(),
+    language: json['language'] ?? 'English',
+    earnedBadges: (json['earnedBadges'] as List?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        ['first_step'],
+  );
+
   // Constants for Pakistani Education System
   static const List<String> pakistaniUniversities = [
     'Khwaja Fareed UEIT (KFUEIT), Rahim Yar Khan',
@@ -203,4 +247,91 @@ class UserProfile {
     // Custom Subject
     'Other (Type Custom Subject)',
   ];
+
+  /// Returns recommended subjects tailored to the student's exact department, program, or school stream.
+  List<String> get recommendedSubjects {
+    if (educationType == EducationType.school) {
+      final track = schoolCourse.toLowerCase();
+      final grade = schoolGrade.toLowerCase();
+      if (track.contains('medical')) {
+        return ['Biology', 'Chemistry', 'Physics', 'English', 'Urdu / Pak Studies'];
+      } else if (track.contains('engineering')) {
+        return ['Mathematics', 'Physics', 'Chemistry', 'English', 'Urdu / Pak Studies'];
+      } else if (track.contains('computer') || track.contains('ics')) {
+        return ['Computer Science', 'Mathematics', 'Physics', 'Statistics', 'English'];
+      } else if (track.contains('commerce') || track.contains('i.com')) {
+        return ['Accounting & Finance', 'Principles of Commerce', 'Economics', 'Business Math'];
+      } else if (grade.contains('9th') || grade.contains('10th') || grade.contains('matric')) {
+        return ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'Computer Science', 'English'];
+      } else {
+        return ['General Science', 'Mathematics', 'English', 'Pakistan Studies', 'Islamic Studies'];
+      }
+    } else {
+      final p = program.toLowerCase();
+      if (p.contains('computer') ||
+          p.contains('software') ||
+          p.contains('it') ||
+          p.contains('ai') ||
+          p.contains('data science') ||
+          p.contains('cyber')) {
+        return [
+          'Programming Fundamentals (C++ / Python / Java)',
+          'Object Oriented Programming (OOP)',
+          'Data Structures & Algorithms (DSA)',
+          'Database Systems (SQL / DBMS)',
+          'Operating Systems',
+          'Computer Networks',
+          'Artificial Intelligence (AI & ML)',
+          'Software Engineering',
+        ];
+      } else if (p.contains('business') ||
+          p.contains('bba') ||
+          p.contains('accounting') ||
+          p.contains('finance') ||
+          p.contains('economics')) {
+        return [
+          'Accounting & Finance',
+          'Business Administration & Management',
+          'Economics',
+          'Financial Accounting',
+          'Marketing Management',
+          'Business Mathematics & Statistics',
+        ];
+      } else if (p.contains('medical') ||
+          p.contains('mbbs') ||
+          p.contains('pharm') ||
+          p.contains('dpt')) {
+        return [
+          'Human Anatomy & Histology',
+          'Physiology & Biochemistry',
+          'Pathology & Microbiology',
+          'Pharmacology & Therapeutics',
+          'Forensic Medicine',
+          'Clinical Medicine',
+        ];
+      } else if (p.contains('engineering') ||
+          p.contains('electrical') ||
+          p.contains('mechanical') ||
+          p.contains('civil')) {
+        return [
+          'Calculus & Analytical Geometry',
+          'Linear Algebra & Differential Equations',
+          'Circuit Analysis / Mechanics',
+          'Thermodynamics / Fluid Mechanics',
+          'Engineering Physics',
+          'Digital Logic Design',
+        ];
+      } else if (p.contains('law') || p.contains('llb')) {
+        return [
+          'Constitutional Law of Pakistan',
+          'Jurisprudence & Legal Theory',
+          'Pakistan Penal Code (PPC)',
+          'Law of Torts & Contracts',
+          'Criminal Procedure Code (CrPC)',
+        ];
+      } else {
+        return academicSubjects.sublist(0, 8);
+      }
+    }
+  }
 }

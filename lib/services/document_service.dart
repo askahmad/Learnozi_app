@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
-import 'ai_tutor_service.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart';
+import 'gemini_client.dart';
 import 'quota_service.dart';
+import 'storage_service.dart';
 
 class UploadedDoc {
   final String id;
@@ -30,6 +31,33 @@ class UploadedDoc {
   });
 
   int get totalCharacters => content.isNotEmpty ? content.length : byteSize;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'content': content,
+    'byteSize': byteSize,
+    'summary': summary,
+    'keyPoints': keyPoints,
+    'chatHistory': chatHistory.map((m) => m.toJson()).toList(),
+    'uploadedAt': uploadedAt.toIso8601String(),
+    'isPdf': isPdf,
+  };
+
+  factory UploadedDoc.fromJson(Map<String, dynamic> json) => UploadedDoc(
+    id: json['id'] ?? '',
+    name: json['name'] ?? '',
+    content: json['content'] ?? '',
+    byteSize: (json['byteSize'] as num?)?.toInt() ?? 0,
+    summary: json['summary'] ?? '',
+    keyPoints: (json['keyPoints'] as List?)?.map((e) => e.toString()).toList() ?? [],
+    chatHistory: (json['chatHistory'] as List?)
+            ?.map((m) => DocChatMessage.fromJson(Map<String, dynamic>.from(m)))
+            .toList() ??
+        [],
+    uploadedAt: DateTime.tryParse(json['uploadedAt'] ?? '') ?? DateTime.now(),
+    isPdf: json['isPdf'] ?? false,
+  );
 }
 
 class DocChatMessage {
@@ -46,6 +74,22 @@ class DocChatMessage {
     required this.timestamp,
     this.charactersUsed = 0,
   });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'text': text,
+    'isUser': isUser,
+    'timestamp': timestamp.toIso8601String(),
+    'charactersUsed': charactersUsed,
+  };
+
+  factory DocChatMessage.fromJson(Map<String, dynamic> json) => DocChatMessage(
+    id: json['id'] ?? '',
+    text: json['text'] ?? '',
+    isUser: json['isUser'] ?? false,
+    timestamp: DateTime.tryParse(json['timestamp'] ?? '') ?? DateTime.now(),
+    charactersUsed: (json['charactersUsed'] as num?)?.toInt() ?? 0,
+  );
 }
 
 class DocumentService extends ChangeNotifier {
@@ -55,8 +99,40 @@ class DocumentService extends ChangeNotifier {
     _initializeSampleDocuments();
   }
 
+  static const String _storageKey = 'uploaded_documents';
   final List<UploadedDoc> _documents = [];
   List<UploadedDoc> get documents => List.unmodifiable(_documents);
+
+  Future<void> loadFromStorage() async {
+    final raw = await StorageService().loadJson(_storageKey);
+    if (raw is List && raw.isNotEmpty) {
+      _documents
+        ..clear()
+        ..addAll(raw.map((d) => UploadedDoc.fromJson(Map<String, dynamic>.from(d))));
+      notifyListeners();
+    }
+  }
+
+  void _persist() {
+    StorageService().saveJson(
+      _storageKey,
+      _documents.map((d) => d.toJson()).toList(),
+    );
+  }
+
+  /// Extracts text locally from PDF bytes using Syncfusion PDF.
+  String extractTextFromPdfBytes(Uint8List pdfBytes) {
+    try {
+      final document = PdfDocument(inputBytes: pdfBytes);
+      final extractor = PdfTextExtractor(document);
+      final extracted = extractor.extractText().trim();
+      document.dispose();
+      return extracted;
+    } catch (e) {
+      debugPrint('PDF text extraction error: $e');
+      return '';
+    }
+  }
 
   void _initializeSampleDocuments() {
     _documents.add(
@@ -119,25 +195,24 @@ Physics Class 11 - Chapter 5: Rotational and Circular Motion.
     final isPdf = pdfBytes != null || docName.toLowerCase().endsWith('.pdf');
     final base64Pdf = pdfBytes != null ? base64Encode(pdfBytes) : null;
 
-    final apiKey = AiTutorService.apiKey;
+    var resolvedText = docText.trim();
+    if (resolvedText.isEmpty && pdfBytes != null) {
+      resolvedText = extractTextFromPdfBytes(pdfBytes);
+    }
+
     String summary = 'Document summary generated successfully.';
     List<String> keyPoints = ['Key point extracted from document.'];
 
-    if (apiKey.isNotEmpty) {
-      final url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey',
-      );
-
-      final List<Map<String, dynamic>> parts = [];
-      if (base64Pdf != null) {
-        parts.add({
-          'inline_data': {
-            'mime_type': 'application/pdf',
-            'data': base64Pdf,
-          }
-        });
-        parts.add({
-          'text': '''
+    final List<Map<String, dynamic>> parts = [];
+    if (base64Pdf != null && resolvedText.isEmpty) {
+      parts.add({
+        'inline_data': {
+          'mime_type': 'application/pdf',
+          'data': base64Pdf,
+        }
+      });
+      parts.add({
+        'text': '''
 Summarize this academic PDF document ("$docName") and extract 4-6 high-yield key revision points.
 Return ONLY valid JSON matching this structure:
 {
@@ -145,11 +220,14 @@ Return ONLY valid JSON matching this structure:
   "key_points": ["Point 1", "Point 2", "Point 3", "Point 4"]
 }
 '''
-        });
-      } else {
-        parts.add({
-          'text': '''
-Summarize this academic document and extract 4-6 high-yield key revision points.
+      });
+    } else if (resolvedText.isNotEmpty) {
+      final excerpt = resolvedText.length > 12000
+          ? resolvedText.substring(0, 12000)
+          : resolvedText;
+      parts.add({
+        'text': '''
+Summarize this academic document ("$docName") and extract 4-6 high-yield key revision points.
 Return ONLY valid JSON matching this structure:
 {
   "summary": "2-3 concise summary sentences",
@@ -158,53 +236,72 @@ Return ONLY valid JSON matching this structure:
 
 Document:
 """
-$docText
+$excerpt
 """
 '''
-        });
-      }
+      });
+    }
 
+    bool aiSummarized = false;
+    if (parts.isNotEmpty) {
       try {
-        final response = await http.post(
-          url,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'contents': [
-              {
-                'parts': parts,
-              }
-            ],
-            'generationConfig': {
-              'response_mime_type': 'application/json',
-              'temperature': 0.3,
-            }
-          }),
-        ).timeout(const Duration(seconds: 35));
-
-        if (response.statusCode == 200) {
-          final body = jsonDecode(response.body);
-          final text = body['candidates']?[0]?['content']?['parts']?[0]?['text'] ?? '';
-          final parsed = jsonDecode(text);
+        final rawText = await GeminiClient.generateContent(
+          contents: [
+            {'role': 'user', 'parts': parts}
+          ],
+          temperature: 0.3,
+          jsonMode: true,
+          timeout: const Duration(seconds: 35),
+        );
+        if (rawText != null && rawText.isNotEmpty) {
+          final parsed = jsonDecode(GeminiClient.stripMarkdownFences(rawText));
           summary = parsed['summary'] ?? summary;
           keyPoints = (parsed['key_points'] as List?)?.map((e) => e.toString()).toList() ?? keyPoints;
+          aiSummarized = true;
         }
       } catch (e) {
         debugPrint('Gemini summary parsing error: $e');
-        summary = 'Summary generated from notes: Covers core concepts, formulas, and examination principles.';
-        if (docText.trim().isNotEmpty) {
-          keyPoints = docText.split('\n').where((l) => l.trim().length > 10).take(4).toList();
-        } else {
-          keyPoints = [
-            'Document: $docName uploaded (${(byteSize / 1024).toStringAsFixed(1)} KB)',
-            'Ready for syllabus Q&A and exam practice',
-            'Contains lecture notes and curriculum concepts',
-          ];
+      }
+
+      // Tier 2 Free AI Summary if Gemini unavailable & we have text
+      if (!aiSummarized && resolvedText.isNotEmpty) {
+        try {
+          final excerpt = resolvedText.length > 3500
+              ? resolvedText.substring(0, 3500)
+              : resolvedText;
+          final freeText = await GeminiClient.callFreeOpenAi(
+            messages: [
+              {
+                'role': 'system',
+                'content': 'Return ONLY valid JSON with "summary" and "key_points" (list of 4 strings).'
+              },
+              {
+                'role': 'user',
+                'content': 'Summarize "$docName":\n$excerpt',
+              },
+            ],
+            jsonMode: true,
+          );
+          if (freeText != null && freeText.isNotEmpty) {
+            final parsed = jsonDecode(freeText);
+            summary = parsed['summary'] ?? summary;
+            keyPoints = (parsed['key_points'] as List?)?.map((e) => e.toString()).toList() ?? keyPoints;
+            aiSummarized = true;
+          }
+        } catch (e) {
+          debugPrint('Free AI summary error: $e');
         }
       }
-    } else {
+    }
+
+    if (!aiSummarized) {
       summary = 'Document processed and indexed for exam preparation.';
-      if (docText.trim().isNotEmpty) {
-        keyPoints = docText.split('\n').where((l) => l.trim().length > 10).take(4).toList();
+      if (resolvedText.isNotEmpty) {
+        keyPoints = resolvedText
+            .split('\n')
+            .where((l) => l.trim().length > 10)
+            .take(5)
+            .toList();
       } else {
         keyPoints = [
           'Document: $docName (${(byteSize / 1024).toStringAsFixed(1)} KB)',
@@ -216,7 +313,9 @@ $docText
     final doc = UploadedDoc(
       id: 'doc_${DateTime.now().millisecondsSinceEpoch}',
       name: docName,
-      content: docText.isNotEmpty ? docText : 'PDF Document ($docName, ${(byteSize / 1024).toStringAsFixed(1)} KB)',
+      content: resolvedText.isNotEmpty
+          ? resolvedText
+          : 'PDF Document ($docName, ${(byteSize / 1024).toStringAsFixed(1)} KB)',
       byteSize: byteSize,
       summary: summary,
       keyPoints: keyPoints,
@@ -228,6 +327,7 @@ $docText
 
     _documents.insert(0, doc);
     QuotaService().consumeDocUpload();
+    _persist();
     notifyListeners();
 
     return {
@@ -235,6 +335,42 @@ $docText
       'summary': summary,
       'keyPoints': keyPoints,
     };
+  }
+
+  /// Selects the most relevant chunks from a long document using keyword overlap.
+  String _selectRelevantExcerpt(String content, String question, {int maxChars = 3500}) {
+    if (content.length <= maxChars) return content;
+
+    final tokens = question
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), '')
+        .split(RegExp(r'\s+'))
+        .where((t) => t.length > 2)
+        .toSet();
+
+    final paragraphs = content.split(RegExp(r'\n\s*\n|\n'));
+    final scored = <MapEntry<int, String>>[];
+    for (final p in paragraphs) {
+      final trimmed = p.trim();
+      if (trimmed.isEmpty) continue;
+      final lower = trimmed.toLowerCase();
+      int score = 0;
+      for (final t in tokens) {
+        if (lower.contains(t)) score++;
+      }
+      scored.add(MapEntry(score, trimmed));
+    }
+
+    scored.sort((a, b) => b.key.compareTo(a.key));
+    final buffer = StringBuffer();
+    for (final entry in scored) {
+      if (buffer.length + entry.value.length + 2 > maxChars) break;
+      buffer.writeln(entry.value);
+      buffer.writeln();
+    }
+
+    final result = buffer.toString().trim();
+    return result.isNotEmpty ? result : content.substring(0, maxChars);
   }
 
   /// Grounded Document Q&A Chat (FR-03)
@@ -251,14 +387,12 @@ $docText
       return '⚠️ Daily AI request limit reached. Resets at midnight.';
     }
 
-    final apiKey = AiTutorService.apiKey;
-    if (apiKey.isNotEmpty) {
-      final url = Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey',
-      );
+    final relevantExcerpt = _selectRelevantExcerpt(doc.content, question, maxChars: 6000);
 
+    // Tier 1: Gemini
+    if (GeminiClient.cleanApiKey.isNotEmpty) {
       final List<Map<String, dynamic>> parts = [];
-      if (doc.isPdf && doc.base64Pdf != null) {
+      if (doc.isPdf && doc.base64Pdf != null && doc.content.startsWith('PDF Document (')) {
         parts.add({
           'inline_data': {
             'mime_type': 'application/pdf',
@@ -271,23 +405,20 @@ You are an academic document tutor. Answer the student's question ONLY using the
 If the answer is NOT present or cannot be inferred from this PDF, reply:
 "This topic is not covered in your uploaded document."
 Language: $language.
-For programming or technical material, provide code or formulas in the matching format.
-
 Question: $question
 '''
         });
       } else {
         parts.add({
           'text': '''
-You are an academic document tutor. Answer the student's question ONLY using the document text below.
+You are an academic document tutor. Answer the student's question ONLY using the document excerpt below.
 If the answer is NOT present or cannot be inferred from the document text, reply:
 "This topic is not covered in your uploaded document."
 Language: $language.
-For programming or technical material, provide code in the matching programming language.
 
-Document:
+Document ("${doc.name}"):
 """
-${doc.content}
+$relevantExcerpt
 """
 
 Question: $question
@@ -295,64 +426,45 @@ Question: $question
         });
       }
 
-      try {
-        final response = await http
-            .post(
-              url,
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({
-                'contents': [
-                  {
-                    'parts': parts,
-                  }
-                ],
-                'generationConfig': {
-                  'temperature': 0.4,
-                  'maxOutputTokens': 1000,
-                }
-              }),
-            )
-            .timeout(const Duration(seconds: 35));
-
-        if (response.statusCode == 200) {
-          final body = jsonDecode(response.body);
-          final answer = body['candidates']?[0]?['content']?['parts']?[0]?['text'] ?? 'No response generated.';
-          QuotaService().consumeAiRequest();
-          _appendChatMessage(docIndex, question, answer, doc.content.length);
-          return answer;
-        }
-      } catch (e) {
-        debugPrint('Live Gemini doc chat failed: $e. Falling back to free AI engine.');
+      final answer = await GeminiClient.generateContent(
+        contents: [
+          {'role': 'user', 'parts': parts}
+        ],
+        temperature: 0.4,
+        maxOutputTokens: 1000,
+        timeout: const Duration(seconds: 30),
+      );
+      if (answer != null && answer.isNotEmpty) {
+        QuotaService().consumeAiRequest();
+        _appendChatMessage(docIndex, question, answer, relevantExcerpt.length);
+        return answer;
       }
     }
 
-    // Free Open AI Engine Grounded Q&A Fallback (Tier 2)
+    // Tier 2: Free Open AI Engine Grounded Q&A Fallback
     if (doc.content.trim().isNotEmpty) {
-      try {
-        final snippet = doc.content.length > 2000 ? doc.content.substring(0, 2000) : doc.content;
-        final prompt = '''
-You are an academic document tutor. Answer the student's question based strictly on this document excerpt:
-"""
-$snippet
-"""
-Question: $question
-Language: $language
-Format code and formulas cleanly if applicable.
-''';
-        final encoded = Uri.encodeComponent(prompt);
-        final res = await http.get(Uri.parse('https://text.pollinations.ai/$encoded')).timeout(const Duration(seconds: 12));
-        if (res.statusCode == 200 && res.body.trim().isNotEmpty && !res.body.contains('<!DOCTYPE html>')) {
-          final liveAnswer = res.body.trim();
-          QuotaService().consumeAiRequest();
-          _appendChatMessage(docIndex, question, liveAnswer, snippet.length);
-          return liveAnswer;
-        }
-      } catch (e) {
-        debugPrint('Free AI doc chat failed: $e. Falling back to local extractor.');
+      final snippet = _selectRelevantExcerpt(doc.content, question, maxChars: 2800);
+      final liveAnswer = await GeminiClient.callFreeOpenAi(
+        messages: [
+          {
+            'role': 'system',
+            'content':
+                'You are an academic document tutor. Answer ONLY using the provided document excerpt. If not covered, say "This topic is not covered in your uploaded document." Language: $language.'
+          },
+          {
+            'role': 'user',
+            'content': 'Document ("${doc.name}"):\n"""\n$snippet\n"""\n\nQuestion: $question',
+          },
+        ],
+      );
+      if (liveAnswer != null && liveAnswer.isNotEmpty) {
+        QuotaService().consumeAiRequest();
+        _appendChatMessage(docIndex, question, liveAnswer, snippet.length);
+        return liveAnswer;
       }
     }
 
-    // Grounded Document Q&A Fallback (FR-03: answers ONLY from doc context)
+    // Tier 3: Grounded Document Q&A Fallback (FR-03: answers ONLY from doc context)
     final answer = _extractGroundedDocAnswer(doc: doc, question: question);
     QuotaService().consumeAiRequest();
     _appendChatMessage(docIndex, question, answer['text'] as String, answer['charactersUsed'] as int);
@@ -426,6 +538,7 @@ $matchedSection
         charactersUsed: charCount,
       ),
     );
+    _persist();
     notifyListeners();
   }
 }

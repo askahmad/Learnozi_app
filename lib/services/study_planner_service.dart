@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/study_plan_model.dart';
+import 'storage_service.dart';
 import 'user_service.dart';
 
 class StudyPlannerService extends ChangeNotifier {
@@ -9,6 +10,7 @@ class StudyPlannerService extends ChangeNotifier {
     _initSamplePlan();
   }
 
+  static const String _storageKey = 'study_planner_data';
   final List<StudyPlan> _plans = [];
   List<StudyPlan> get plans => List.unmodifiable(_plans);
 
@@ -17,6 +19,32 @@ class StudyPlannerService extends ChangeNotifier {
 
   final List<FocusSession> _focusSessions = [];
   List<FocusSession> get focusSessions => List.unmodifiable(_focusSessions);
+
+  Future<void> loadFromStorage() async {
+    final raw = await StorageService().loadJson(_storageKey);
+    if (raw is Map) {
+      final plansRaw = raw['plans'] as List?;
+      final sessionsRaw = raw['focusSessions'] as List?;
+      if (plansRaw != null) {
+        _plans
+          ..clear()
+          ..addAll(plansRaw.map((p) => StudyPlan.fromJson(Map<String, dynamic>.from(p))));
+      }
+      if (sessionsRaw != null) {
+        _focusSessions
+          ..clear()
+          ..addAll(sessionsRaw.map((s) => FocusSession.fromJson(Map<String, dynamic>.from(s))));
+      }
+      notifyListeners();
+    }
+  }
+
+  void _persist() {
+    StorageService().saveJson(_storageKey, {
+      'plans': _plans.map((p) => p.toJson()).toList(),
+      'focusSessions': _focusSessions.map((s) => s.toJson()).toList(),
+    });
+  }
 
   int get totalFocusMinutesLogged =>
       _focusSessions.fold(0, (sum, item) => sum + item.durationMinutes);
@@ -125,6 +153,7 @@ class StudyPlannerService extends ChangeNotifier {
             if (task.isCompleted) {
               UserService().incrementStreak();
             }
+            _persist();
             notifyListeners();
             return;
           }
@@ -178,6 +207,7 @@ class StudyPlannerService extends ChangeNotifier {
         tasks: tasks,
       ),
     );
+    _persist();
     notifyListeners();
   }
 
@@ -201,6 +231,7 @@ class StudyPlannerService extends ChangeNotifier {
       UserService().unlockBadge('focus_scholar');
     }
 
+    _persist();
     notifyListeners();
   }
 }

@@ -87,6 +87,31 @@ class QuizAttempt {
 
   int get totalQuestions => questions.length;
   int get correctCount => questions.where((q) => q.isCorrect).length;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'subject': subject,
+    'topic': topic,
+    'questions': questions.map((q) => q.toJson()).toList(),
+    'timestamp': timestamp.toIso8601String(),
+    'isTerminated': isTerminated,
+    'scorePercent': scorePercent,
+  };
+
+  factory QuizAttempt.fromJson(Map<String, dynamic> json) => QuizAttempt(
+    id: json['id'] ?? '',
+    title: json['title'] ?? '',
+    subject: json['subject'] ?? '',
+    topic: json['topic'] ?? '',
+    questions: (json['questions'] as List?)
+            ?.map((q) => QuizQuestion.fromJson(Map<String, dynamic>.from(q)))
+            .toList() ??
+        [],
+    timestamp: DateTime.tryParse(json['timestamp'] ?? '') ?? DateTime.now(),
+    isTerminated: json['isTerminated'] ?? false,
+    scorePercent: (json['scorePercent'] as num?)?.toDouble() ?? 0.0,
+  );
 }
 
 class TopicPerformance {
@@ -111,4 +136,28 @@ class TopicPerformance {
     this.isWeak = false,
     this.avgTimeSeconds = 45.0,
   });
+
+  Map<String, dynamic> toJson() => {
+    'subject': subject,
+    'topic': topic,
+    'attempts': attempts,
+    'correct': correct,
+    'accuracy': accuracy,
+    'lastAttemptDate': lastAttemptDate.toIso8601String(),
+    'isWeak': isWeak,
+    'avgTimeSeconds': avgTimeSeconds,
+  };
+
+  factory TopicPerformance.fromJson(Map<String, dynamic> json) =>
+      TopicPerformance(
+        subject: json['subject'] ?? '',
+        topic: json['topic'] ?? '',
+        attempts: (json['attempts'] as num?)?.toInt() ?? 0,
+        correct: (json['correct'] as num?)?.toInt() ?? 0,
+        accuracy: (json['accuracy'] as num?)?.toDouble() ?? 0.0,
+        lastAttemptDate:
+            DateTime.tryParse(json['lastAttemptDate'] ?? '') ?? DateTime.now(),
+        isWeak: json['isWeak'] ?? false,
+        avgTimeSeconds: (json['avgTimeSeconds'] as num?)?.toDouble() ?? 45.0,
+      );
 }

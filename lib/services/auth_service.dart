@@ -2,6 +2,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/user_profile.dart';
+import 'adaptive_service.dart';
+import 'document_service.dart';
+import 'flashcard_service.dart';
+import 'quiz_service.dart';
+import 'quota_service.dart';
+import 'study_planner_service.dart';
 import 'user_service.dart';
 
 class AuthService extends ChangeNotifier {
@@ -99,6 +105,19 @@ class AuthService extends ChangeNotifier {
         password: password.trim(),
       );
       _isDemoActive = false;
+      final user = _auth.currentUser;
+      await Future.wait([
+        UserService().loadFromStorage(
+          fallbackName: user?.displayName,
+          fallbackEmail: user?.email,
+        ),
+        QuotaService().loadFromStorage(),
+        AdaptiveService().loadFromStorage(),
+        FlashcardService().loadFromStorage(),
+        StudyPlannerService().loadFromStorage(),
+        QuizService().loadFromStorage(),
+        DocumentService().loadFromStorage(),
+      ]);
       notifyListeners();
       return null; // Success
     } on FirebaseAuthException catch (e) {
