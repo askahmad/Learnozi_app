@@ -10,15 +10,13 @@ class GeminiClient {
       ? GeminiConfig.apiKey.trim()
       : const String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
 
-  static String activeModel = 'gemini-2.5-flash';
+  static String activeModel = 'gemini-3-flash-preview';
   static String? lastApiError;
   static int? lastStatusCode;
 
   static const List<String> _candidateModels = [
-    'gemini-2.5-flash',
-    'gemini-2.0-flash',
-    'gemini-1.5-flash',
-    'gemini-1.5-pro',
+    'gemini-3-flash-preview',
+    'gemini-flash-latest',
   ];
 
   static String get cleanApiKey =>
@@ -29,7 +27,7 @@ class GeminiClient {
     required List<Map<String, dynamic>> contents,
     String? systemInstruction,
     double temperature = 0.7,
-    int maxOutputTokens = 1500,
+    int maxOutputTokens = 4096,
     bool jsonMode = false,
     Duration timeout = const Duration(seconds: 20),
   }) async {

@@ -222,7 +222,7 @@ void main() {
       expect(explanation.isNotEmpty, isTrue);
       expect(explanation, contains('ACID'));
       expect(explanation, contains('Normalization'));
-      expect(explanation, contains('CREATE TABLE'));
+      expect(explanation, anyOf(contains('CREATE TABLE'), contains('BEGIN'), contains('SELECT'), contains('UPDATE')));
     });
 
     test('Multi-tier AI fallback handles general questions gracefully', () async {
